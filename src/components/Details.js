@@ -7,7 +7,8 @@ import {
     TouchableHighlight,
     TouchableWithoutFeedback,
     ScrollView,
-    Dimensions
+    Dimensions,
+    Share
 } from 'react-native'
 
 import Icon from 'react-native-vector-icons/FontAwesome'
@@ -33,6 +34,21 @@ class Details extends Component {
             passProps: {
                 title: name
             }
+        })
+    }
+
+    onShare(){
+        Share.share({
+            title: 'Designated Survivor',
+            url: 'www.youtube.com',
+            message: 'Awesome Tv Show'
+        }, {
+            //android
+            dialogTitle: 'Share this awesome content',
+            //ios
+            excludeActivityTypes: [
+                'com.apple.UIKit.activity.PostToTwitter'
+            ]
         })
     }
     
@@ -87,16 +103,17 @@ class Details extends Component {
                             />
                             <Text style={styles.text}>My List</Text>
                         </View>
-                        
-                        <View style={styles.myShareIcon}>
-                            <Icon 
-                                style={styles.shareIcon}
-                                name="share-alt"
-                                color="grey"
-                                size={25}
-                            />
-                            <Text style={styles.text}>Share</Text>
-                        </View>
+                        <TouchableHighlight onPress={this.onShare}>
+                            <View style={styles.myShareIcon}>
+                                <Icon 
+                                    style={styles.shareIcon}
+                                    name="share-alt"
+                                    color="grey"
+                                    size={25}
+                                />
+                                <Text style={styles.text}>Share</Text>
+                            </View>
+                        </TouchableHighlight>
                     </View>
                 </View>
                 <TabsEpisodes data={episodes} />
