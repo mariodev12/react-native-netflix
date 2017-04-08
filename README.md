@@ -2,7 +2,7 @@
 
 React Native App with the same style as Netflix for iOS. I released a serie of videos on Youtube with a walkthrough explaining every part of this application.
 
-<img src="http://www.playagain.es/img/promo-app.gif">
+![Image of React Native Netflix App](http://i.imgur.com/EEZCSCg.png)
 
 Installation
 ------------
