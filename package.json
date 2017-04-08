@@ -7,8 +7,9 @@
     "test": "jest"
   },
   "dependencies": {
-    "react": "16.0.0-alpha.3",
-    "react-native": "0.43.0-rc.4",
+    "react": "16.0.0-alpha.6",
+    "react-native": "0.43.1",
+    "react-native-animatable": "^1.1.1",
     "react-native-linear-gradient": "^2.0.0",
     "react-native-navigator-animation": "^1.2.0",
     "react-native-orientation": "^1.17.0",
@@ -18,6 +19,7 @@
     "react-native-vector-icons": "^4.0.0",
     "react-native-video": "^1.0.0",
     "react-native-video-controls": "^1.2.0",
+    "react-router-native": "^4.0.0",
     "react-test-renderer": "16.0.0-alpha.3"
   },
   "devDependencies": {
