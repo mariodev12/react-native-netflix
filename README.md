@@ -20,7 +20,7 @@ Test this app on a iPhone instead the emulator.
 Thanks
 ------
 
-**hicat** © 2017+, Mario Diez. Released under the [MIT License].<br>
+**Mario Diez** © 2017+, Mario Diez. Released under the [MIT License].<br>
 Authored and maintained by Mario Diez.
 
 > [mariodiezgarcia.com](http://www.mariodiezgarcia.com) &nbsp;&middot;&nbsp;
@@ -29,5 +29,3 @@ Authored and maintained by Mario Diez.
 > Twitter [@mariodev_](https://twitter.com/mariodev_)
 
 [MIT License]: http://mit-license.org/
-[contributors]: http://github.com/rstacruz/hicat/contributors
-[highlight.js]: http://highlightjs.org
