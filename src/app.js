@@ -20,6 +20,12 @@ class App extends Component {
         }
     }
 
+    static navigationOptions = {
+        header: {
+            visible: false,
+        }
+    }
+
     toggle(){
         this.setState({
             isOpen: !this.state.isOpen
@@ -31,6 +37,7 @@ class App extends Component {
     }
 
     render(){
+        console.log(this.props)
         return (
             <View style={{flex: 1}}>
                 <SideMenu
@@ -40,9 +47,9 @@ class App extends Component {
                     style={{flex: 1}}
                 >
                     <View style={[{flex: 1}, styles.container]}>
-                        <Header navigator={this.props.navigator} toggle={this.toggle.bind(this)} />
+                        <Header navigation={this.props.navigation} toggle={this.toggle.bind(this)} />
                         <Slide />
-                        <List navigator={this.props.navigator}/>
+                        <List navigation={this.props.navigation}/>
                     </View>
                 </SideMenu>
             </View>
@@ -52,7 +59,9 @@ class App extends Component {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: 'black'
+        backgroundColor: 'black',
+        borderWidth: 1,
+        borderColor: 'red'
     }
 })
 

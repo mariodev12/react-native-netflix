@@ -14,38 +14,8 @@ import {
 const {width, height} = Dimensions.get('window')
 import Icon from 'react-native-vector-icons/FontAwesome'
 
-const shows_first = [
-    {
-        key: 1,
-        name:'Suits',
-        image: 'https://static.tvmaze.com/uploads/images/medium_portrait/0/2432.jpg'
-    },
-    {
-        key: 2,
-        name:'Modern Family',
-        image: 'https://static.tvmaze.com/uploads/images/medium_portrait/0/628.jpg'
-    },
-    {
-        key: 3,
-        name:'The Flash',
-        image: 'https://static.tvmaze.com/uploads/images/medium_portrait/78/195988.jpg'
-    },
-    {
-        key: 4,
-        name:'Supergirl',
-        image: 'https://static.tvmaze.com/uploads/images/medium_portrait/83/209955.jpg'
-    },
-    {
-        key: 5,
-        name:'Designated Survivor',
-        image: 'https://static.tvmaze.com/uploads/images/medium_portrait/101/253490.jpg'
-    },
-    {
-        key: 6,
-        name:'24: Legacy',
-        image: 'https://static.tvmaze.com/uploads/images/medium_portrait/90/225030.jpg'
-    }
-]
+import { NativeRouter, Route, Link, BrowserHistory } from 'react-router-native'
+import {getAll} from '../api/api'
 
 class Search extends Component {
     constructor(props){
@@ -55,8 +25,15 @@ class Search extends Component {
             data: ''
         }
     }
+    static navigationOptions = {
+        header: {
+            visible: false,
+        }
+    }
+        
     filter(text){
-        const newData = shows_first.filter(function(item){
+        const data = getAll()
+        const newData = data.filter(function(item){
             const itemData = item.name.toUpperCase()
             const textData = text.toUpperCase()
             return itemData.indexOf(textData) > -1
@@ -70,11 +47,16 @@ class Search extends Component {
         this.setState({text: '', data: ''})
     }
     _renderItem(item){
+        const {navigate} = this.props.navigation
         return (
-            <Image key={item.key} style={styles.image} source={{uri: item.image}} />
+            <TouchableWithoutFeedback onPress={() => navigate('Details', {item: item, navigation: this.props.navigation})}>
+                <Image style={{width: 120, height: 180}} source={{uri: item.image}}/>
+            </TouchableWithoutFeedback>
         )
     }
     render(){
+        const {goBack} = this.props.navigation
+        const {history} = this.props
         return (
             <View style={styles.container}>
                 <View style={styles.header}>
@@ -103,7 +85,7 @@ class Search extends Component {
                         />
                     </TouchableWithoutFeedback>
                     : null}
-                    <TouchableWithoutFeedback style={styles.cancelButton} onPress={() => this.props.navigator.pop()}>
+                    <TouchableWithoutFeedback style={styles.cancelButton} onPress={() => goBack()}>
                         <View style={styles.containerButton}>
                             <Text style={styles.cancelButtonText}>Cancel</Text>
                         </View>

@@ -17,8 +17,10 @@ import TabsEpisodes from './TabsEpisodes'
 import * as Animatable from 'react-native-animatable'
 import TextGradient from 'react-native-linear-gradient'
 import Orientation from 'react-native-orientation'
+import { getListDetail } from '../api/api'
 
 const {width, height} = Dimensions.get('window')
+
 
 class Details extends Component {
     constructor(props){
@@ -26,23 +28,17 @@ class Details extends Component {
         this.state = {
             measures: 0,
             header: false,
-            animation: ''
+            animation: '',
+            data: null
+        }
+    }
+    static navigationOptions = {
+        header: {
+            visible: false,
         }
     }
     componentWillMount() {
         Orientation.lockToPortrait()
-    }
-
-    openVideo(){
-        const {name} = this.props.item
-
-        Orientation.lockToLandscape();
-        this.props.navigator.push({
-            ident: 'Video',
-            passProps: {
-                title: name
-            }
-        })
     }
 
     onShare(){
@@ -74,9 +70,11 @@ class Details extends Component {
     }
     
     render(){
-        const {episodes} = this.props.item.details
-        const {name} = this.props.item
-        const {thumbnail, cast, description, year, creator, numOfEpisodes, season} = this.props.item.details
+        const {params} = this.props.navigation.state
+        const {navigate} = params.navigation
+        const {episodes} = params.item.details
+        const {name} = params.item
+        const {thumbnail, cast, description, year, creator, numOfEpisodes, season} = params.item.details
         return (
             <View style={{flex: 1}}>
                 {this.state.header ? <Animatable.View animation={this.state.animation} style={styles.header}>
@@ -88,9 +86,7 @@ class Details extends Component {
                         source={{uri: thumbnail}}
                     >
                         <View style={styles.buttonPlay}>
-                            <TouchableWithoutFeedback
-                                onPress={() => this.openVideo()}
-                            >
+                            <TouchableHighlight onPress={() => navigate('Video', {navigation: params})}>
                                 <View>
                                     <Icon 
                                         style={styles.iconPlay}
@@ -99,7 +95,7 @@ class Details extends Component {
                                         color="white"
                                     />
                                 </View>
-                            </TouchableWithoutFeedback>
+                            </TouchableHighlight>
                         </View>
                         <View style={styles.nameContainer}
                             onLayout={({nativeEvent}) => {

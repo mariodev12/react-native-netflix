@@ -7,6 +7,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "history": "^4.6.1",
     "react": "16.0.0-alpha.6",
     "react-native": "0.43.1",
     "react-native-animatable": "^1.1.1",
@@ -19,7 +20,7 @@
     "react-native-vector-icons": "^4.0.0",
     "react-native-video": "^1.0.0",
     "react-native-video-controls": "^1.2.0",
-    "react-router-native": "^4.0.0",
+    "react-navigation": "git+https://github.com/react-community/react-navigation.git",
     "react-test-renderer": "16.0.0-alpha.3"
   },
   "devDependencies": {
