@@ -22,5 +22,4 @@ function getTwoLists(ob) {
     return [arrays, arr]
 }
 
-//CLOSURE
 export const getTwoItems = getTwoLists(data);
