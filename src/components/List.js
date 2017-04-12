@@ -9,20 +9,31 @@ import {
 } from 'react-native'
 
 import Orientation from 'react-native-orientation'
-var data = require('../data.json')
-import { getTwoItems, getListDetail } from '../api/api'
-
+import {getTwoItems} from '../api/api'
 
 class List extends Component {
+
+    
     componentWillMount() {
         Orientation.lockToPortrait()
     }
     
+
+    newPushContent(item){
+        this.props.navigator.push({
+            ident: 'Details',
+            passProps: {
+                item
+            }
+        })
+    }
+
     _renderItem(item){
-        console.log(this.props)
         const {navigate} = this.props.navigation
         return (
-            <TouchableWithoutFeedback onPress={() => navigate('Details', {item: item, navigation: this.props.navigation})}>
+            <TouchableWithoutFeedback onPress={
+                () => navigate('Details', {item: item})}
+            >
                 <Image style={{width: 120, height: 180}} source={{uri: item.image}}/>
             </TouchableWithoutFeedback>
         )
@@ -31,7 +42,7 @@ class List extends Component {
     render(){
         console.log(this.props)
         return (
-            <View style={styles.container}>
+            <View style={{flex: 1}}>
                 <View>
                     <Text style={styles.text}>My List</Text>
                     <FlatList

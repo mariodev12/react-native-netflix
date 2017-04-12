@@ -11,7 +11,7 @@ import Orientation from 'react-native-orientation'
 class VideoPlayerView extends Component {
     static navigationOptions = {
         header: {
-            visible: false,
+            visible: false
         }
     }
     componentWillMount(){
@@ -21,10 +21,8 @@ class VideoPlayerView extends Component {
         const {goBack} = this.props.navigation
         Orientation.lockToPortrait()
         goBack()
-        
     }
     render(){
-        
         return (
             <View style={styles.container}>
                 <VideoPlayer 

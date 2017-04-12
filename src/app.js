@@ -22,7 +22,7 @@ class App extends Component {
 
     static navigationOptions = {
         header: {
-            visible: false,
+            visible: false
         }
     }
 
@@ -37,7 +37,6 @@ class App extends Component {
     }
 
     render(){
-        console.log(this.props)
         return (
             <View style={{flex: 1}}>
                 <SideMenu
@@ -59,9 +58,7 @@ class App extends Component {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: 'black',
-        borderWidth: 1,
-        borderColor: 'red'
+        backgroundColor: 'black'
     }
 })
 

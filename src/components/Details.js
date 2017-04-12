@@ -17,10 +17,8 @@ import TabsEpisodes from './TabsEpisodes'
 import * as Animatable from 'react-native-animatable'
 import TextGradient from 'react-native-linear-gradient'
 import Orientation from 'react-native-orientation'
-import { getListDetail } from '../api/api'
 
 const {width, height} = Dimensions.get('window')
-
 
 class Details extends Component {
     constructor(props){
@@ -28,13 +26,12 @@ class Details extends Component {
         this.state = {
             measures: 0,
             header: false,
-            animation: '',
-            data: null
+            animation: ''
         }
     }
     static navigationOptions = {
         header: {
-            visible: false,
+            visible: false
         }
     }
     componentWillMount() {
@@ -70,13 +67,24 @@ class Details extends Component {
     }
     
     render(){
+        const {goBack} = this.props.navigation
         const {params} = this.props.navigation.state
-        const {navigate} = params.navigation
         const {episodes} = params.item.details
+        const {navigate} = this.props.navigation
         const {name} = params.item
         const {thumbnail, cast, description, year, creator, numOfEpisodes, season} = params.item.details
         return (
             <View style={{flex: 1}}>
+                <TouchableHighlight 
+                    style={styles.closeButton}
+                    onPress={() => goBack()}
+                >
+                    <Icon 
+                        name="close"
+                        color="white"
+                        size={18}
+                    />
+                </TouchableHighlight>
                 {this.state.header ? <Animatable.View animation={this.state.animation} style={styles.header}>
                     <Text style={styles.headerText}>{name}</Text>
                 </Animatable.View>: null}
@@ -86,7 +94,9 @@ class Details extends Component {
                         source={{uri: thumbnail}}
                     >
                         <View style={styles.buttonPlay}>
-                            <TouchableHighlight onPress={() => navigate('Video', {navigation: params})}>
+                            <TouchableWithoutFeedback
+                                onPress={() => navigate('Video', {name: name})}
+                            >
                                 <View>
                                     <Icon 
                                         style={styles.iconPlay}
@@ -95,7 +105,7 @@ class Details extends Component {
                                         color="white"
                                     />
                                 </View>
-                            </TouchableHighlight>
+                            </TouchableWithoutFeedback>
                         </View>
                         <View style={styles.nameContainer}
                             onLayout={({nativeEvent}) => {
@@ -163,6 +173,12 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         zIndex: 1
+    },
+    closeButton: {
+        position: 'absolute',
+        top: 15,
+        right: 10,
+        zIndex: 2
     },
     headerText: {
         color: 'white',

@@ -13,8 +13,6 @@ import {
 
 const {width, height} = Dimensions.get('window')
 import Icon from 'react-native-vector-icons/FontAwesome'
-
-import { NativeRouter, Route, Link, BrowserHistory } from 'react-router-native'
 import {getAll} from '../api/api'
 
 class Search extends Component {
@@ -25,12 +23,13 @@ class Search extends Component {
             data: ''
         }
     }
+
     static navigationOptions = {
         header: {
-            visible: false,
+            visible: false
         }
     }
-        
+
     filter(text){
         const data = getAll()
         const newData = data.filter(function(item){
@@ -49,14 +48,15 @@ class Search extends Component {
     _renderItem(item){
         const {navigate} = this.props.navigation
         return (
-            <TouchableWithoutFeedback onPress={() => navigate('Details', {item: item, navigation: this.props.navigation})}>
+            <TouchableWithoutFeedback onPress={
+                () => navigate('Details', {item: item})}
+            >
                 <Image style={{width: 120, height: 180}} source={{uri: item.image}}/>
             </TouchableWithoutFeedback>
         )
     }
     render(){
         const {goBack} = this.props.navigation
-        const {history} = this.props
         return (
             <View style={styles.container}>
                 <View style={styles.header}>

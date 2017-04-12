@@ -1,25 +1,14 @@
-var data = require('../data.json')
+import data from '../data.json'
 
-const getJSON = (data) => {
+export function getAll(){
     return data
 }
 
-export function getAll() {
-    return data
+function getTwoLists(json){
+    var array = json.slice(0)
+    var val = Math.floor(array.length / 2)
+    var newArray = array.splice(0, val)
+    return [array, newArray]
 }
 
-export function getListDetail(element){
-    var items = getJSON(data).slice(0)
-    return items.filter(function(i){
-        return i.key == element
-    })
-}
-
-function getTwoLists(ob) {
-    var arrays = ob.slice(0)
-    var val = Math.floor(arrays.length / 2)
-    var arr = arrays.splice(0, val)
-    return [arrays, arr]
-}
-
-export const getTwoItems = getTwoLists(data);
+export const getTwoItems = getTwoLists(data)
