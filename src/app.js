@@ -21,9 +21,7 @@ class App extends Component {
     }
 
     static navigationOptions = {
-        header: {
-            visible: false
-        }
+        headerVisible: false
     }
 
     toggle(){

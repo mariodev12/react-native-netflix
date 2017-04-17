@@ -8,13 +8,13 @@ import {
     TouchableWithoutFeedback,
     ScrollView,
     Dimensions,
-    Share
+    Share,
+    Animated
 } from 'react-native'
 
 import Icon from 'react-native-vector-icons/FontAwesome'
 import IonIcons from 'react-native-vector-icons/Ionicons'
 import TabsEpisodes from './TabsEpisodes'
-import * as Animatable from 'react-native-animatable'
 import TextGradient from 'react-native-linear-gradient'
 import Orientation from 'react-native-orientation'
 
@@ -24,15 +24,14 @@ class Details extends Component {
     constructor(props){
         super(props)
         this.state = {
-            measures: 0,
-            header: false,
-            animation: ''
+            measuresTitle: 0,
+            measuresSeason: 0,
+            scrollY: new Animated.Value(0),
+
         }
     }
     static navigationOptions = {
-        header: {
-            visible: false
-        }
+        headerVisible: false
     }
     componentWillMount() {
         Orientation.lockToPortrait()
@@ -51,22 +50,24 @@ class Details extends Component {
                 'com.apple.UIKit.activity.PostToTwitter'
             ]
         })
-    }
-
-    handleScroll(event){
-        if(event.nativeEvent.contentOffset.y > this.state.measures){
-            this.setState({
-                header: true,
-                animation: 'slideInDown'
-            })
-        } else {
-            this.setState({
-                header: false
-            })
-        }
-    }
-    
+    }    
     render(){
+        const headerNameToggle = this.state.scrollY.interpolate({
+            inputRange : [this.state.measuresTitle, this.state.measuresTitle + 1],
+            outputRange: [0, 1]
+        })
+        const headerSeasonHide = this.state.scrollY.interpolate({
+            inputRange: [
+                this.state.measuresSeason - 1, 
+                this.state.measuresSeason,
+                this.state.measuresSeason + 1
+            ],
+            outputRange: [-width, 0, 0]
+        })
+        const headerSeasonToggle = this.state.scrollY.interpolate({
+            inputRange: [this.state.measuresSeason, this.state.measuresSeason +1],
+            outputRange: [0, 1]
+        })
         const {goBack} = this.props.navigation
         const {params} = this.props.navigation.state
         const {episodes} = params.item.details
@@ -85,10 +86,22 @@ class Details extends Component {
                         size={18}
                     />
                 </TouchableHighlight>
-                {this.state.header ? <Animatable.View animation={this.state.animation} style={styles.header}>
+                <Animated.View style={[styles.header, {opacity: headerNameToggle}]}>
                     <Text style={styles.headerText}>{name}</Text>
-                </Animatable.View>: null}
-                <ScrollView onScroll={this.handleScroll.bind(this)} style={styles.container}>
+                </Animated.View>
+                <Animated.View style={[styles.header, 
+                    {opacity: headerSeasonToggle, transform: [{translateY: 0}, {translateX: headerSeasonHide}]}]}
+                >
+                    <Text style={styles.headerText}>Season 1</Text>
+                </Animated.View>
+                <Animated.ScrollView 
+                scrollEventThrottle={1}
+                onScroll={
+                    Animated.event(
+                        [{nativeEvent: {contentOffset: {y:this.state.scrollY}}}],
+                        {useNativeDriver: true}
+                    )
+                } style={styles.container}>
                     <Image 
                         style={styles.thumbnail}
                         source={{uri: thumbnail}}
@@ -110,7 +123,7 @@ class Details extends Component {
                         <View style={styles.nameContainer}
                             onLayout={({nativeEvent}) => {
                                 this.setState({
-                                    measures: nativeEvent.layout.y
+                                    measuresTitle: nativeEvent.layout.y
                                 })
                             }}
                         >
@@ -153,8 +166,14 @@ class Details extends Component {
                             </TouchableHighlight>
                         </View>
                     </View>
-                    <TabsEpisodes data={episodes} />
-                </ScrollView>
+                    <View onLayout={({nativeEvent}) => {
+                                this.setState({
+                                    measuresSeason: nativeEvent.layout.y + 10
+                                })
+                            }}>
+                        <TabsEpisodes data={episodes} />
+                    </View>
+                </Animated.ScrollView>
             </View>
         )
     }

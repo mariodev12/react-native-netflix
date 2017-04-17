@@ -10,9 +10,7 @@ import Orientation from 'react-native-orientation'
 
 class VideoPlayerView extends Component {
     static navigationOptions = {
-        header: {
-            visible: false
-        }
+        headerVisible: false
     }
     componentWillMount(){
         Orientation.lockToLandscape()

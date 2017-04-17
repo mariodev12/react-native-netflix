@@ -16,10 +16,11 @@
     "react-native-orientation": "^1.17.0",
     "react-native-side-menu": "^0.20.1",
     "react-native-swiper": "^1.5.4",
-    "react-native-tab-view": "0.0.58",
+    "react-native-tab-view": "https://github.com/mariodev12/react-native-tab-view/tarball/master",
+    "react-native-transition": "^1.1.6",
     "react-native-vector-icons": "^4.0.0",
     "react-native-video": "^1.0.0",
-    "react-native-video-controls": "^1.2.0",
+    "react-native-video-controls": "https://github.com/mariodev12/react-native-video-controls/tarball/master",
     "react-navigation": "git+https://github.com/react-community/react-navigation.git",
     "react-test-renderer": "16.0.0-alpha.3"
   },

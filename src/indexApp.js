@@ -15,7 +15,7 @@ const IndexApp = StackNavigator({
     Search: {screen: Search},
     Video: {screen: Video}
 },{
-    headerMode: 'screen'
+    headerMode: 'screen',
 })
 
 export default IndexApp
