@@ -25,7 +25,13 @@ class TabsEpisodes extends Component {
     _renderScene({route}){
         switch(route.key){
             case '1':
-                return <Episodes episodes={this.props.data} />
+                return <Episodes
+                            seasons={this.props.seasons}
+                            getSeason={this.props.getSeason}
+                            navigation={this.props.navigation} 
+                            currentSeason={this.props.currentSeason}
+                            episodes={this.props.data} 
+                        />
             case '2':
                 return <Trailers />
             default: 

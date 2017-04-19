@@ -13,19 +13,8 @@ import {getTwoItems} from '../api/api'
 
 class List extends Component {
 
-    
     componentWillMount() {
         Orientation.lockToPortrait()
-    }
-    
-
-    newPushContent(item){
-        this.props.navigator.push({
-            ident: 'Details',
-            passProps: {
-                item
-            }
-        })
     }
 
     _renderItem(item){
@@ -40,7 +29,6 @@ class List extends Component {
     }
 
     render(){
-        console.log(this.props)
         return (
             <View style={{flex: 1}}>
                 <View>

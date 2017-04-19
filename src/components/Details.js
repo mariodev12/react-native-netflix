@@ -27,7 +27,7 @@ class Details extends Component {
             measuresTitle: 0,
             measuresSeason: 0,
             scrollY: new Animated.Value(0),
-
+            currentSeason: 1
         }
     }
     static navigationOptions = {
@@ -50,8 +50,16 @@ class Details extends Component {
                 'com.apple.UIKit.activity.PostToTwitter'
             ]
         })
-    }    
+    }
+
+    getSeason(season){
+        this.setState({
+            currentSeason: season
+        })
+    }
+
     render(){
+        console.log(this.state.currentSeason)
         const headerNameToggle = this.state.scrollY.interpolate({
             inputRange : [this.state.measuresTitle, this.state.measuresTitle + 1],
             outputRange: [0, 1]
@@ -92,7 +100,23 @@ class Details extends Component {
                 <Animated.View style={[styles.header, 
                     {opacity: headerSeasonToggle, transform: [{translateY: 0}, {translateX: headerSeasonHide}]}]}
                 >
-                    <Text style={styles.headerText}>Season 1</Text>
+                {season == 1? <TouchableHighlight>
+                    <Text style={styles.headerText}>Season {this.state.currentSeason}</Text>
+                </TouchableHighlight> : <TouchableHighlight onPress={() => navigate('EpisodesPicker', {
+                        getSeason: this.getSeason.bind(this),
+                        seasons: season,
+                        currentSeason: this.state.currentSeason
+                    })}>
+                    <View style={styles.headerWithIcon}>
+                        <Text style={styles.headerText}>Season {this.state.currentSeason}</Text>
+                        <Icon 
+                            style={styles.iconDown}
+                            name="chevron-down"
+                            color="white"
+                            size={15}
+                        />
+                    </View>
+                </TouchableHighlight>}
                 </Animated.View>
                 <Animated.ScrollView 
                 scrollEventThrottle={1}
@@ -171,7 +195,13 @@ class Details extends Component {
                                     measuresSeason: nativeEvent.layout.y + 10
                                 })
                             }}>
-                        <TabsEpisodes data={episodes} />
+                        <TabsEpisodes
+                            seasons={season}
+                            getSeason={this.getSeason.bind(this)}
+                            navigation={this.props.navigation} 
+                            data={episodes} 
+                            currentSeason={this.state.currentSeason}
+                        />
                     </View>
                 </Animated.ScrollView>
             </View>
@@ -202,6 +232,13 @@ const styles = StyleSheet.create({
     headerText: {
         color: 'white',
         fontSize: 20
+    },
+    headerWithIcon: {
+        flexDirection: 'row',
+        alignItems: 'center'
+    },
+    iconDown: {
+        marginLeft: 5
     },
     titleShow: {
         fontSize: 35,

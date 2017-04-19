@@ -25,9 +25,7 @@ class Search extends Component {
     }
 
     static navigationOptions = {
-        header: {
-            visible: false
-        }
+        headerVisible: false
     }
 
     filter(text){
