@@ -11,6 +11,8 @@ Installation
     $ npm install
     $ react-native run-ios
 
+A few components must be installed with react-native link check out the following list.
+
 External components
 ------------
 
@@ -27,8 +29,7 @@ External components
 Tips and tricks
 ---------------
 
-Is required to use React Native ^0.43 because we are using the new component FlatList. 
-Test this app on a iPhone instead the emulator.
+Is required to use React Native ^0.43 because we are using the new component FlatList.
 
 Thanks
 ------
