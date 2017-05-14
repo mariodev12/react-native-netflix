@@ -7,7 +7,7 @@ React Native App with the same style as Netflix for iOS. I released a serie of v
 Netflix NodeJS & MongoDB
 -----
 
-[https://github.com/mariodev12/React-Native-NodeJS-server-with-mongodb](Netflix NodeJS & MongoDB)
+[Netflix NodeJS & MongoDB](https://github.com/mariodev12/React-Native-NodeJS-server-with-mongodb)&nbsp;&middot;&nbsp;
 
 Installation
 ------------
