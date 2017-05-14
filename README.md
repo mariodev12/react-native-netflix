@@ -4,11 +4,17 @@ React Native App with the same style as Netflix for iOS. I released a serie of v
 
 ![Image of React Native Netflix App](http://i.imgur.com/EEZCSCg.png)
 
+Server
+-----
+
+[Netflix NodeJS & MongoDB](https://github.com/mariodev12/React-Native-NodeJS-server-with-mongodb)&nbsp;&middot;&nbsp;
+
 Installation
 ------------
 
     $ clone this repo
     $ npm install
+    $ Install Netflix NodeJS & MongoDB
     $ react-native run-ios
 
 A few components must be installed with react-native link check out the following list.
