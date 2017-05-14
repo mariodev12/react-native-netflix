@@ -5,7 +5,8 @@ import {
     View,
     Text,
     Image,
-    ScrollView
+    ScrollView,
+    TouchableHighlight
 } from 'react-native'
 
 import Icon from 'react-native-vector-icons/FontAwesome'
@@ -14,7 +15,21 @@ import IonIcons from 'react-native-vector-icons/Ionicons'
 const {width, height} = Dimensions.get('window')
 
 class Menu extends Component {
+    _renderItemsMenu(){
+        const genres = ["Home","Drama","Action","Fantasy","Horror","Romance","Crime","Thriller","Mystery","Science-Fiction","Comedy","Family","Music","Adventure","Espionage","Supernatural"]
+        const {itemSelectedValue} = this.props
+        return genres.map((element, key) => (
+            <TouchableHighlight 
+                key={key}
+                style={element == itemSelectedValue ? [styles.items, styles.itemSelected]: styles.noSelectedItems}
+                onPress={() => this.props.itemSelected(element)}    
+            >
+                <Text style={styles.text}>{element}</Text>
+            </TouchableHighlight>
+        ))
+    }
     render(){
+        const {navigate} = this.props.navigation
         return (
             <View style={styles.menu}>
                 <View style={styles.avatarContainer}>
@@ -66,39 +81,7 @@ class Menu extends Component {
                             size={25}
                         />
                     </View>
-                    <View style={[styles.items, styles.itemSelected]}>
-                        <Text style={styles.text}>Home</Text>
-                    </View>
-                    <View style={styles.noSelectedItems}>
-                        <Text style={styles.text}>Available for Download</Text>
-                    </View>
-                    <View style={styles.noSelectedItems}>
-                        <Text style={styles.text}>Netflix Originals</Text>
-                    </View>
-                    <View style={styles.noSelectedItems}>
-                        <Text style={styles.text}>TV Shows</Text>
-                    </View>
-                    <View style={styles.noSelectedItems}>
-                        <Text style={styles.text}>Actions & Adventure</Text>
-                    </View>
-                    <View style={styles.noSelectedItems}>
-                        <Text style={styles.text}>Children & Family Movies</Text>
-                    </View>
-                    <View style={styles.noSelectedItems}>
-                        <Text style={styles.text}>Comedies</Text>
-                    </View>
-                    <View style={styles.noSelectedItems}>
-                        <Text style={styles.text}>Documentaries</Text>
-                    </View>
-                    <View style={styles.noSelectedItems}>
-                        <Text style={styles.text}>Dramas</Text>
-                    </View>
-                    <View style={styles.noSelectedItems}>
-                        <Text style={styles.text}>Independent Movies</Text>
-                    </View>
-                    <View style={styles.noSelectedItems}>
-                        <Text style={styles.text}>Indian Movies</Text>
-                    </View>
+                    {this._renderItemsMenu()}
                 </ScrollView>
             </View>
         )

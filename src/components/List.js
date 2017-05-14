@@ -29,6 +29,7 @@ class List extends Component {
     }
 
     render(){
+        const {getTwoRows} = this.props
         return (
             <View style={{flex: 1}}>
                 <View>
@@ -37,7 +38,7 @@ class List extends Component {
                         horizontal
                         SeparatorComponent={() => <View style={{width: 5}} />}
                         renderItem={({item}) => this._renderItem(item)} 
-                        data={getTwoItems[0]}
+                        data={getTwoRows()[0]}
                     />
                 </View>
                 <View>
@@ -46,7 +47,7 @@ class List extends Component {
                         horizontal
                         SeparatorComponent={() => <View style={{width: 5}} />}
                         renderItem={({item}) => this._renderItem(item)} 
-                        data={getTwoItems[1]}
+                        data={getTwoRows()[1]}
                     />
                 </View>
             </View>

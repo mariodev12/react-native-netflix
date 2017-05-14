@@ -24,7 +24,9 @@
     "react-navigation": "git+https://github.com/react-community/react-navigation.git",
     "react-redux": "^5.0.4",
     "react-test-renderer": "16.0.0-alpha.3",
-    "redux": "^3.6.0"
+    "react-thunk": "^1.0.0",
+    "redux": "^3.6.0",
+    "redux-thunk": "^2.2.0"
   },
   "devDependencies": {
     "babel-jest": "19.0.0",
