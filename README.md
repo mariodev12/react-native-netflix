@@ -9,6 +9,7 @@ Installation
 
     $ clone this repo
     $ npm install
+    $ Server [https://github.com/mariodev12/React-Native-NodeJS-server-with-mongodb](Netflix NodeJS & MongoDB)
     $ react-native run-ios
 
 A few components must be installed with react-native link check out the following list.
