@@ -80,7 +80,8 @@ class App extends Component {
                                 navigation={this.props.navigation}
                             />
                         </View> : 
-                        <Genres 
+                        <Genres
+                            navigation={this.props.navigation} 
                             item={this.state.itemSelected}
                         />}
                     </View>

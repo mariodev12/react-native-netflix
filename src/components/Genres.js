@@ -1,5 +1,5 @@
 import React, {Component} from 'react'
-import {Text,View, StyleSheet} from 'react-native'
+import {Text,View, StyleSheet, FlatList, TouchableWithoutFeedback, Image, ActivityIndicator} from 'react-native'
 
 import {fetchData} from '../actions'
 import {connect} from 'react-redux'
@@ -18,16 +18,64 @@ class Genres extends Component {
         }
         return true
     }
+
+    replaceHttp(url){
+        return url.replace(/^http:\/\//i, 'https://')
+    }
+
+    renderItem(item){
+        const {navigate} = this.props.navigation
+        return (
+            <TouchableWithoutFeedback
+                onPress={() => navigate('Details', {item})}
+            >
+                <Image style={styles.image} source={{uri: this.replaceHttp(item.image)}} />
+            </TouchableWithoutFeedback>
+        )
+    }
+
+    renderList(){
+        const {data} = this.props.data
+        return (
+            <FlatList 
+                data={data}
+                style={{flex: 1}}
+                numColumns={3}
+                renderItem={({item}) => this.renderItem(item)}
+                keyExtractor={item => item.id}
+            />
+        )
+    }
+
+    renderActivityIndicator(){
+        const {activityIndicatorContainer} = styles
+        return (
+            <View style={activityIndicatorContainer}>
+                <ActivityIndicator size="large" />
+            </View>
+        )
+    }
     
     render(){
-        console.log(this.props)
+        const {isFetching} = this.props.data
         return (
-            <View style={{flex: 1, backgroundColor: 'white'}}>
-                <Text>{this.props.item}</Text>
+            <View style={{flex: 1}}>
+                {isFetching ? this.renderActivityIndicator() : this.renderList()}
             </View>
         )
     }
 }
+
+const styles = StyleSheet.create({
+    image: {
+        width: 120,
+        height: 170
+    },
+    activityIndicatorContainer: {
+        flex: 1,
+        justifyContent: 'center'
+    }
+})
 
 //mapStateToProps
 const mapStateToProps = state => {
