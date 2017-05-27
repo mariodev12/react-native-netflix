@@ -1,18 +1,23 @@
 import React, {Component} from 'react'
 import {View,Text, StyleSheet, TouchableWithoutFeedback, Image} from 'react-native'
 import Icon from 'react-native-vector-icons/FontAwesome'
+import {replaceHttps, removeHtmlTags} from '../lib' 
 class Episodes extends Component{
+    getThumbnail(item){
+        const localImagePath = require('../images/default-image.png')
+        return item.image ? {uri: replaceHttps(item.image.original)} : localImagePath
+    }
     renderEpisodes(){
         const {currentSeason} = this.props
 
         return this.props.episodes.filter(function(element){
             return element.season == currentSeason
         }).map((item, i) => {
-            const img = item.image == null ? 'https://static.tvmaze.com/uploads/images/medium_landscape/76/190262.jpg': item.image.medium
+            const img = this.getThumbnail(item)
             return (
                 <View style={styles.video} key={i}>
                     <View style={styles.videoEpisode}>
-                        <Image style={styles.image} source={{uri: img}}>
+                        <Image style={styles.image} source={img}>
                             <View style={styles.buttonPlay}>
                                 <TouchableWithoutFeedback>
                                     <View style={{backgroundColor: 'transparent'}}>
@@ -31,7 +36,7 @@ class Episodes extends Component{
                             <Text style={styles.text}>{item.runtime}</Text>
                         </View>
                     </View>
-                    <Text style={styles.summary}>{item.summary}</Text>
+                    <Text style={styles.summary}>{removeHtmlTags(item.summary)}</Text>
                 </View>
             )
         })

@@ -18,6 +18,8 @@ import TabsEpisodes from './TabsEpisodes'
 import TextGradient from 'react-native-linear-gradient'
 import Orientation from 'react-native-orientation'
 
+import {replaceHttps, getYear, removeHtmlTags} from '../lib' 
+
 const {width, height} = Dimensions.get('window')
 
 class Details extends Component {
@@ -58,8 +60,42 @@ class Details extends Component {
         })
     }
 
+    renderThumbnail(){
+        const {params} = this.props.navigation.state
+        const {episodes} = params.item.details
+        const localImagePath = require('../images/default-image.png');
+        return episodes[0].image ? {uri : replaceHttps(episodes[0].image.original) } : localImagePath
+    }
+
+    getLastSeason(){
+        const {params} = this.props.navigation.state
+        const {episodes} = params.item.details
+        return episodes[episodes.length-1].season
+    }
+
+    getNumOfEpisodes(){
+        const {params} = this.props.navigation.state
+        const {episodes} = params.item.details
+        return episodes.length
+    }
+
+    getCast(){
+        const {params} = this.props.navigation.state
+        const {cast} = params.item.details
+        const personCast = []
+        for(let i = 0; i < 5; i++){
+            personCast.push(cast[i].person.name)
+        }
+        return personCast.join(", ");
+    }
+
+    resumeDescription(text){
+        const newText = text.split(".")
+        return removeHtmlTags(newText[0]) + ". " + removeHtmlTags(newText[1])
+    }
+
     render(){
-        console.log(this.state.currentSeason)
+        console.log(this.props.navigation)
         const headerNameToggle = this.state.scrollY.interpolate({
             inputRange : [this.state.measuresTitle, this.state.measuresTitle + 1],
             outputRange: [0, 1]
@@ -100,11 +136,11 @@ class Details extends Component {
                 <Animated.View style={[styles.header, 
                     {opacity: headerSeasonToggle, transform: [{translateY: 0}, {translateX: headerSeasonHide}]}]}
                 >
-                {season == 1? <TouchableHighlight>
+                {this.getLastSeason() == 1? <TouchableHighlight>
                     <Text style={styles.headerText}>Season {this.state.currentSeason}</Text>
                 </TouchableHighlight> : <TouchableHighlight onPress={() => navigate('EpisodesPicker', {
                         getSeason: this.getSeason.bind(this),
-                        seasons: season,
+                        seasons: this.getLastSeason(),
                         currentSeason: this.state.currentSeason
                     })}>
                     <View style={styles.headerWithIcon}>
@@ -128,7 +164,7 @@ class Details extends Component {
                 } style={styles.container}>
                     <Image 
                         style={styles.thumbnail}
-                        source={{uri: thumbnail}}
+                        source={this.renderThumbnail()}
                     >
                         <View style={styles.buttonPlay}>
                             <TouchableWithoutFeedback
@@ -158,15 +194,14 @@ class Details extends Component {
                     </Image>
                     <View style={styles.descriptionContainer}>
                         <View style={styles.subtitle}>
-                            <Text style={[styles.text, styles.subTitleText]}>{year}</Text>
-                            <Text style={[styles.text, styles.subTitleText]}>{numOfEpisodes}</Text>
-                            <Text style={[styles.text, styles.subTitleText]}>{season} Season</Text>
+                            <Text style={[styles.text, styles.subTitleText]}>{getYear(year)}</Text>
+                            <Text style={[styles.text, styles.subTitleText]}>{this.getNumOfEpisodes()}</Text>
+                            <Text style={[styles.text, styles.subTitleText]}>{this.getLastSeason()} Season</Text>
                         </View>
                         <View style={styles.description}>
-                            <Text style={[styles.text, styles.light]}>{description}</Text>
+                            <Text style={[styles.text, styles.light]}>{this.resumeDescription(description)}.</Text>
                         </View>
-                        <Text style={[styles.text]}>Cast: {cast}</Text>
-                        <Text style={[styles.text]}>Creator: {creator}</Text>
+                        <Text style={[styles.text]}>Cast: {this.getCast()}. </Text>
                         <View style={styles.shareListIcons}>
                             <View style={styles.myListIcon}>
                                 <IonIcons

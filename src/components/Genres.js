@@ -4,6 +4,8 @@ import {Text,View, StyleSheet, FlatList, TouchableWithoutFeedback, Image, Activi
 import {fetchData} from '../actions'
 import {connect} from 'react-redux'
 
+import {replaceHttps} from '../lib'
+
 class Genres extends Component {
     
     componentWillMount () {
@@ -19,17 +21,13 @@ class Genres extends Component {
         return true
     }
 
-    replaceHttp(url){
-        return url.replace(/^http:\/\//i, 'https://')
-    }
-
     renderItem(item){
         const {navigate} = this.props.navigation
         return (
             <TouchableWithoutFeedback
                 onPress={() => navigate('Details', {item})}
             >
-                <Image style={styles.image} source={{uri: this.replaceHttp(item.image)}} />
+                <Image style={styles.image} source={{uri: replaceHttps(item.image)}} />
             </TouchableWithoutFeedback>
         )
     }
