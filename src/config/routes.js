@@ -10,12 +10,38 @@ const Routes = {
         screen: App, 
         navigationOptions: ({navigation}) => ({
             header: false
-          }),},
-    Details: {screen: Details},
-    Search: {screen: Search},
-    Genres: {screen: Genres},
-    Video: {screen: Video},
-    EpisodesPicker: {screen: EpisodesPicker}
+          })
+    },
+    Details: {
+        screen: Details,
+        navigationOptions: ({navigation}) => ({
+            header: false
+          })
+    },
+    Search: {
+        screen: Search,
+        navigationOptions: ({navigation}) => ({
+            header: false
+        })
+    },
+    Genres: {
+        screen: Genres, 
+        navigationOptions: ({navigation}) => ({
+            header: false
+        })
+    },
+    Video: {
+        screen: Video,
+        navigationOptions: ({navigation}) => ({
+            header: false
+        })
+    },
+    EpisodesPicker: {
+        screen: EpisodesPicker,
+        navigationOptions: ({navigation}) => ({
+            header: false
+        })
+    }
 }
 
 export default Routes
