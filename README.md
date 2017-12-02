@@ -15,6 +15,7 @@ Installation
     $ clone this repo
     $ npm install
     $ Install Netflix NodeJS & MongoDB
+    $ react-native upgrade
     $ react-native run-ios
 
 A few components must be installed with react-native link check out the following list.
