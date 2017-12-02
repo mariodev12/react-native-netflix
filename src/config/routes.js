@@ -6,7 +6,11 @@ import Genres from '../components/Genres'
 import EpisodesPicker from '../components/EpisodesPicker'
 
 const Routes = {
-    Home: {screen: App},
+    Home: {
+        screen: App, 
+        navigationOptions: ({navigation}) => ({
+            header: false
+          }),},
     Details: {screen: Details},
     Search: {screen: Search},
     Genres: {screen: Genres},
