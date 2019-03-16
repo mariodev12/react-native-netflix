@@ -38,6 +38,17 @@ Tips and tricks
 
 Is required to use React Native ^0.43 because we are using the new component FlatList.
 
+
+
+################################
+
+Rework in progress.
+
+- [] Use react-native 0.50 or newer.
+- [] Updated libraries.
+
+
+
 Thanks
 ------
 
