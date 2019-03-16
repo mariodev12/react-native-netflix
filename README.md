@@ -44,7 +44,7 @@ Is required to use React Native ^0.43 because we are using the new component Fla
 
 Rework in progress.
 
-- [ ] Use react-native 0.50 or newer.
+- [ ] Use react-native 0.59 or newer.
 - [ ] Updated libraries.
 
 
