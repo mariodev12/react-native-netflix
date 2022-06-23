@@ -19,9 +19,6 @@
 #include <folly/detail/Futex.h>
 #include <folly/synchronization/ParkingLot.h>
 
-#include <condition_variable>
-#include <cstdint>
-
 namespace folly {
 namespace detail {
 namespace atomic_notification {
@@ -50,21 +47,21 @@ extern ParkingLot<std::uint32_t> parkingLot;
 
 template <template <typename...> class Atom, typename... Args>
 void atomic_wait_impl(
-    const Atom<std::uint32_t, Args...>* atomic,
-    std::uint32_t expected) {
-  futexWait(atomic, expected);
+    const Atom<std::uint32_t, Args...>* atomic, std::uint32_t old) {
+  futexWait(atomic, old);
   return;
 }
 
 template <template <typename...> class Atom, typename Integer, typename... Args>
-void atomic_wait_impl(const Atom<Integer, Args...>* atomic, Integer expected) {
+void atomic_wait_impl(const Atom<Integer, Args...>* atomic, Integer old) {
   static_assert(!std::is_same<Integer, std::uint32_t>{}, "");
   parkingLot.park(
-      atomic, -1, [&] { return atomic->load() == expected; }, [] {});
+      atomic, -1, [&] { return atomic->load() == old; }, [] {});
 }
 
 template <
-    template <typename...> class Atom,
+    template <typename...>
+    class Atom,
     typename... Args,
     typename Clock,
     typename Duration>
@@ -76,7 +73,8 @@ std::cv_status atomic_wait_until_impl(
 }
 
 template <
-    template <typename...> class Atom,
+    template <typename...>
+    class Atom,
     typename Integer,
     typename... Args,
     typename Clock,
@@ -119,31 +117,31 @@ void atomic_notify_all_impl(const Atom<Integer, Args...>* atomic) {
     return UnparkControl::RemoveContinue;
   });
 }
-} // namespace atomic_notification
-} // namespace detail
 
 template <typename Integer>
-void atomic_wait(const std::atomic<Integer>* atomic, Integer expected) {
-  detail::atomic_notification::atomic_wait_impl(atomic, expected);
+void tag_invoke(
+    atomic_wait_fn, const std::atomic<Integer>* atomic, Integer expected) {
+  atomic_wait_impl(atomic, expected);
 }
 
 template <typename Integer, typename Clock, typename Duration>
-std::cv_status atomic_wait_until(
+std::cv_status tag_invoke(
+    atomic_wait_until_fn,
     const std::atomic<Integer>* atomic,
     Integer expected,
     const std::chrono::time_point<Clock, Duration>& deadline) {
-  return detail::atomic_notification::atomic_wait_until_impl(
-      atomic, expected, deadline);
+  return atomic_wait_until_impl(atomic, expected, deadline);
 }
 
 template <typename Integer>
-void atomic_notify_one(const std::atomic<Integer>* atomic) {
-  detail::atomic_notification::atomic_notify_one_impl(atomic);
+void tag_invoke(atomic_notify_one_fn, const std::atomic<Integer>* atomic) {
+  atomic_notify_one_impl(atomic);
 }
 
 template <typename Integer>
-void atomic_notify_all(const std::atomic<Integer>* atomic) {
-  detail::atomic_notification::atomic_notify_all_impl(atomic);
+void tag_invoke(atomic_notify_all_fn, const std::atomic<Integer>* atomic) {
+  atomic_notify_all_impl(atomic);
 }
-
+} // namespace atomic_notification
+} // namespace detail
 } // namespace folly

@@ -53,9 +53,7 @@ class File {
    */
   explicit File(const char* name, int flags = O_RDONLY, mode_t mode = 0666);
   explicit File(
-      const std::string& name,
-      int flags = O_RDONLY,
-      mode_t mode = 0666);
+      const std::string& name, int flags = O_RDONLY, mode_t mode = 0666);
   explicit File(StringPiece name, int flags = O_RDONLY, mode_t mode = 0666);
 
   /**
@@ -82,21 +80,28 @@ class File {
   /**
    * Return the file descriptor, or -1 if the file was closed.
    */
-  int fd() const {
-    return fd_;
-  }
+  int fd() const { return fd_; }
 
   /**
    * Returns 'true' iff the file was successfully opened.
    */
-  explicit operator bool() const {
-    return fd_ != -1;
-  }
+  explicit operator bool() const { return fd_ != -1; }
 
   /**
    * Duplicate file descriptor and return File that owns it.
+   *
+   * Duplicated file descriptor does not have close-on-exec flag set,
+   * so it is leaked to child processes. Consider using "dupCloseOnExec".
    */
   File dup() const;
+
+  /**
+   * Duplicate file descriptor and return File that owns it.
+   *
+   * This functions creates a descriptor with close-on-exec flag set
+   * (where supported, otherwise it is equivalent to "dup").
+   */
+  File dupCloseOnExec() const;
 
   /**
    * If we own the file descriptor, close the file and throw on error.

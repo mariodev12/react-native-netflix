@@ -64,6 +64,14 @@ class IOThreadPoolExecutor : public ThreadPoolExecutor, public IOExecutor {
       folly::EventBaseManager* ebm = folly::EventBaseManager::get(),
       bool waitForAll = false);
 
+  IOThreadPoolExecutor(
+      size_t maxThreads,
+      size_t minThreads,
+      std::shared_ptr<ThreadFactory> threadFactory =
+          std::make_shared<NamedThreadFactory>("IOThreadPool"),
+      folly::EventBaseManager* ebm = folly::EventBaseManager::get(),
+      bool waitForAll = false);
+
   ~IOThreadPoolExecutor() override;
 
   void add(Func func) override;
@@ -79,7 +87,7 @@ class IOThreadPoolExecutor : public ThreadPoolExecutor, public IOExecutor {
   folly::EventBaseManager* getEventBaseManager();
 
  private:
-  struct alignas(folly::cacheline_align_v) IOThread : public Thread {
+  struct alignas(Thread) IOThread : public Thread {
     IOThread(IOThreadPoolExecutor* pool)
         : Thread(pool), shouldRun(true), pendingTasks(0) {}
     std::atomic<bool> shouldRun;

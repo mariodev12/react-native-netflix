@@ -65,19 +65,11 @@ class Group : public GenImpl<Value&&, Group<Key, Value>> {
   Group(Key key, VectorType values)
       : key_(std::move(key)), values_(std::move(values)) {}
 
-  const Key& key() const {
-    return key_;
-  }
+  const Key& key() const { return key_; }
 
-  size_t size() const {
-    return values_.size();
-  }
-  const VectorType& values() const {
-    return values_;
-  }
-  VectorType& values() {
-    return values_;
-  }
+  size_t size() const { return values_.size(); }
+  const VectorType& values() const { return values_; }
+  VectorType& values() { return values_; }
 
   VectorType operator|(const detail::Collect<VectorType>&) const {
     return values();
@@ -179,8 +171,7 @@ template <class StorageType, class Container>
 class CopiedSource
     : public GenImpl<const StorageType&, CopiedSource<StorageType, Container>> {
   static_assert(
-      !std::is_reference<StorageType>::value,
-      "StorageType must be decayed");
+      !std::is_reference<StorageType>::value, "StorageType must be decayed");
 
  public:
   // Generator objects are often copied during normal construction as they are
@@ -189,8 +180,7 @@ class CopiedSource
   // const reference to the value, it's safe to share it between multiple
   // generators.
   static_assert(
-      !std::is_reference<Container>::value,
-      "Can't copy into a reference");
+      !std::is_reference<Container>::value, "Can't copy into a reference");
   std::shared_ptr<const Container> copy_;
 
  public:
@@ -198,7 +188,8 @@ class CopiedSource
 
   template <class SourceContainer>
   explicit CopiedSource(const SourceContainer& container)
-      : copy_(new Container(begin(container), end(container))) {}
+      : copy_(new Container(access::begin(container), access::end(container))) {
+  }
 
   explicit CopiedSource(Container&& container)
       : copy_(new Container(std::move(container))) {}
@@ -324,12 +315,8 @@ class RangeImpl {
 
  public:
   explicit RangeImpl(Value end) : end_(std::move(end)) {}
-  bool test(const Value& current) const {
-    return current < end_;
-  }
-  void step(Value& current) const {
-    ++current;
-  }
+  bool test(const Value& current) const { return current < end_; }
+  void step(Value& current) const { ++current; }
   static constexpr bool infinite = false;
 };
 
@@ -341,12 +328,8 @@ class RangeWithStepImpl {
  public:
   explicit RangeWithStepImpl(Value end, Distance step)
       : end_(std::move(end)), step_(std::move(step)) {}
-  bool test(const Value& current) const {
-    return current < end_;
-  }
-  void step(Value& current) const {
-    current += step_;
-  }
+  bool test(const Value& current) const { return current < end_; }
+  void step(Value& current) const { current += step_; }
   static constexpr bool infinite = false;
 };
 
@@ -356,12 +339,8 @@ class SeqImpl {
 
  public:
   explicit SeqImpl(Value end) : end_(std::move(end)) {}
-  bool test(const Value& current) const {
-    return current <= end_;
-  }
-  void step(Value& current) const {
-    ++current;
-  }
+  bool test(const Value& current) const { return current <= end_; }
+  void step(Value& current) const { ++current; }
   static constexpr bool infinite = false;
 };
 
@@ -373,24 +352,16 @@ class SeqWithStepImpl {
  public:
   explicit SeqWithStepImpl(Value end, Distance step)
       : end_(std::move(end)), step_(std::move(step)) {}
-  bool test(const Value& current) const {
-    return current <= end_;
-  }
-  void step(Value& current) const {
-    current += step_;
-  }
+  bool test(const Value& current) const { return current <= end_; }
+  void step(Value& current) const { current += step_; }
   static constexpr bool infinite = false;
 };
 
 template <class Value>
 class InfiniteImpl {
  public:
-  bool test(const Value& /* current */) const {
-    return true;
-  }
-  void step(Value& current) const {
-    ++current;
-  }
+  bool test(const Value& /* current */) const { return true; }
+  void step(Value& current) const { ++current; }
   static constexpr bool infinite = true;
 };
 
@@ -480,8 +451,7 @@ class SingleReference : public GenImpl<Value&, SingleReference<Value>> {
 template <class Value>
 class SingleCopy : public GenImpl<const Value&, SingleCopy<Value>> {
   static_assert(
-      !std::is_reference<Value>::value,
-      "SingleCopy requires non-ref types");
+      !std::is_reference<Value>::value, "SingleCopy requires non-ref types");
   Value value_;
 
  public:
@@ -1988,9 +1958,7 @@ class Cycle : public Operator<Cycle<forever>> {
    *
    *  auto tripled = gen | cycle(3);
    */
-  Cycle<false> operator()(off_t limit) const {
-    return Cycle<false>(limit);
-  }
+  Cycle<false> operator()(off_t limit) const { return Cycle<false>(limit); }
 };
 
 /*
@@ -2335,8 +2303,10 @@ class Collect : public Operator<Collect<Collection>> {
  *   set<string> uniqueNames = from(names) | as<set>();
  */
 template <
-    template <class, class> class Container,
-    template <class> class Allocator>
+    template <class, class>
+    class Container,
+    template <class>
+    class Allocator>
 class CollectTemplate : public Operator<CollectTemplate<Container, Allocator>> {
  public:
   CollectTemplate() = default;
@@ -2374,12 +2344,8 @@ class UnwrapOr {
   explicit UnwrapOr(T&& value) : value_(std::move(value)) {}
   explicit UnwrapOr(const T& value) : value_(value) {}
 
-  T& value() {
-    return value_;
-  }
-  const T& value() const {
-    return value_;
-  }
+  T& value() { return value_; }
+  const T& value() const { return value_; }
 
  private:
   T value_;

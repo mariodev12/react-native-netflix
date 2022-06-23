@@ -16,20 +16,19 @@
 
 #pragma once
 
-#include <folly/Executor.h>
 #include <atomic>
+
+#include <folly/Executor.h>
 
 namespace folly {
 class ExecutorWithPriority {
  public:
   template <typename Callback>
   static Executor::KeepAlive<> createDynamic(
-      Executor::KeepAlive<Executor> executor,
-      Callback&& callback);
+      Executor::KeepAlive<Executor> executor, Callback&& callback);
 
   static Executor::KeepAlive<> create(
-      Executor::KeepAlive<Executor> executor,
-      int8_t priority);
+      Executor::KeepAlive<Executor> executor, int8_t priority);
 };
 } // namespace folly
 

@@ -20,6 +20,11 @@
 
 #include <folly/io/async/AsyncServerSocket.h>
 
+#include <sys/types.h>
+
+#include <cerrno>
+#include <cstring>
+
 #include <folly/FileUtil.h>
 #include <folly/Portability.h>
 #include <folly/SocketAddress.h>
@@ -30,10 +35,6 @@
 #include <folly/portability/Fcntl.h>
 #include <folly/portability/Sockets.h>
 #include <folly/portability/Unistd.h>
-
-#include <sys/types.h>
-#include <cerrno>
-#include <cstring>
 
 namespace folly {
 
@@ -57,51 +58,57 @@ const uint32_t AsyncServerSocket::kDefaultCallbackAcceptAtOnce;
 const uint32_t AsyncServerSocket::kDefaultMaxMessagesInQueue;
 
 void AsyncServerSocket::RemoteAcceptor::start(
-    EventBase* eventBase,
-    uint32_t maxAtOnce,
-    uint32_t maxInQueue) {
-  setMaxReadAtOnce(maxAtOnce);
-  queue_.setMaxQueueSize(maxInQueue);
+    EventBase* eventBase, uint32_t maxAtOnce) {
+  queue_.setMaxReadAtOnce(maxAtOnce);
 
   eventBase->runInEventBaseThread([=]() {
     callback_->acceptStarted();
-    this->startConsuming(eventBase, &queue_);
+    queue_.startConsuming(eventBase);
   });
 }
 
 void AsyncServerSocket::RemoteAcceptor::stop(
-    EventBase* eventBase,
-    AcceptCallback* callback) {
+    EventBase* eventBase, AcceptCallback* callback) {
   eventBase->runInEventBaseThread([=]() {
     callback->acceptStopped();
     delete this;
   });
 }
 
-void AsyncServerSocket::RemoteAcceptor::messageAvailable(
+AtomicNotificationQueueTaskStatus
+AsyncServerSocket::RemoteAcceptor::Consumer::operator()(
     QueueMessage&& msg) noexcept {
+  if (msg.isExpired()) {
+    closeNoInt(msg.fd);
+    if (acceptor_.connectionEventCallback_) {
+      acceptor_.connectionEventCallback_->onConnectionDropped(
+          msg.fd, msg.address);
+    }
+    return AtomicNotificationQueueTaskStatus::DISCARD;
+  }
   switch (msg.type) {
     case MessageType::MSG_NEW_CONN: {
-      if (connectionEventCallback_) {
-        connectionEventCallback_->onConnectionDequeuedByAcceptorCallback(
-            msg.fd, msg.address);
+      if (acceptor_.connectionEventCallback_) {
+        acceptor_.connectionEventCallback_
+            ->onConnectionDequeuedByAcceptorCallback(msg.fd, msg.address);
       }
-      callback_->connectionAccepted(msg.fd, msg.address);
+      acceptor_.callback_->connectionAccepted(msg.fd, msg.address);
       break;
     }
     case MessageType::MSG_ERROR: {
-      std::runtime_error ex(msg.msg);
-      callback_->acceptError(ex);
+      auto ex = make_exception_wrapper<std::runtime_error>(msg.msg);
+      acceptor_.callback_->acceptError(std::move(ex));
       break;
     }
     default: {
       LOG(ERROR) << "invalid accept notification message type "
                  << int(msg.type);
-      std::runtime_error ex(
+      auto ex = make_exception_wrapper<std::runtime_error>(
           "received invalid accept notification message type");
-      callback_->acceptError(ex);
+      acceptor_.callback_->acceptError(std::move(ex));
     }
   }
+  return AtomicNotificationQueueTaskStatus::CONSUMED;
 }
 
 /*
@@ -114,9 +121,7 @@ class AsyncServerSocket::BackoffTimeout : public AsyncTimeout {
   explicit BackoffTimeout(AsyncServerSocket* socket)
       : AsyncTimeout(socket->getEventBase()), socket_(socket) {}
 
-  void timeoutExpired() noexcept override {
-    socket_->backoffTimeoutExpired();
-  }
+  void timeoutExpired() noexcept override { socket_->backoffTimeoutExpired(); }
 
  private:
   AsyncServerSocket* socket_;
@@ -297,10 +302,26 @@ void AsyncServerSocket::useExistingSocket(NetworkSocket fd) {
 void AsyncServerSocket::bindSocket(
     NetworkSocket fd,
     const SocketAddress& address,
-    bool isExistingSocket) {
+    bool isExistingSocket,
+    const std::string& ifName) {
   sockaddr_storage addrStorage;
   address.getAddress(&addrStorage);
   auto saddr = reinterpret_cast<sockaddr*>(&addrStorage);
+
+#if defined(__linux__)
+  if (!ifName.empty() &&
+      netops::setsockopt(
+          fd, SOL_SOCKET, SO_BINDTODEVICE, ifName.c_str(), ifName.length())) {
+    auto errnoCopy = errno;
+    if (!isExistingSocket) {
+      closeNoInt(fd);
+    }
+    folly::throwSystemErrorExplicit(
+        errnoCopy, "failed to bind to device: " + ifName);
+  }
+#else
+  (void)ifName;
+#endif
 
   if (netops::bind(fd, saddr, address.getActualSize()) != 0) {
     if (errno != EINPROGRESS) {
@@ -347,7 +368,8 @@ bool AsyncServerSocket::setZeroCopy(bool enable) {
   return false;
 }
 
-void AsyncServerSocket::bind(const SocketAddress& address) {
+void AsyncServerSocket::bindInternal(
+    const SocketAddress& address, const std::string& ifName) {
   if (eventBase_) {
     eventBase_->dcheckIsInEventBaseThread();
   }
@@ -370,12 +392,20 @@ void AsyncServerSocket::bind(const SocketAddress& address) {
     throw std::invalid_argument("Attempted to bind to multiple fds");
   }
 
-  bindSocket(fd, address, !sockets_.empty());
+  bindSocket(fd, address, !sockets_.empty(), ifName);
+}
+
+void AsyncServerSocket::bind(const SocketAddress& address) {
+  bindInternal(address, "");
 }
 
 void AsyncServerSocket::bind(
-    const std::vector<IPAddress>& ipAddresses,
-    uint16_t port) {
+    const SocketAddress& address, const std::string& ifName) {
+  bindInternal(address, ifName);
+}
+
+void AsyncServerSocket::bind(
+    const std::vector<IPAddress>& ipAddresses, uint16_t port) {
   if (ipAddresses.empty()) {
     throw std::invalid_argument("No ip addresses were provided");
   }
@@ -387,7 +417,28 @@ void AsyncServerSocket::bind(
     SocketAddress address(ipAddress.toFullyQualified(), port);
     auto fd = createSocket(address.getFamily());
 
-    bindSocket(fd, address, false);
+    bindSocket(fd, address, false, "");
+  }
+  if (sockets_.empty()) {
+    throw std::runtime_error(
+        "did not bind any async server socket for port and addresses");
+  }
+}
+
+void AsyncServerSocket::bind(
+    const std::vector<IPAddressIfNamePair>& addresses, uint16_t port) {
+  if (addresses.empty()) {
+    throw std::invalid_argument("No ip addresses were provided");
+  }
+  if (eventBase_) {
+    eventBase_->dcheckIsInEventBaseThread();
+  }
+
+  for (const auto& addr : addresses) {
+    SocketAddress address(addr.first.toFullyQualified(), port);
+    auto fd = createSocket(address.getFamily());
+
+    bindSocket(fd, address, false, addr.second);
   }
   if (sockets_.empty()) {
     throw std::runtime_error(
@@ -414,9 +465,7 @@ void AsyncServerSocket::bind(uint16_t port) {
         "bad getaddrinfo");
   }
 
-  SCOPE_EXIT {
-    freeaddrinfo(res0);
-  };
+  SCOPE_EXIT { freeaddrinfo(res0); };
 
   auto setupAddress = [&](struct addrinfo* res) {
     auto s = netops::socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -561,9 +610,7 @@ std::vector<SocketAddress> AsyncServerSocket::getAddresses() const {
 }
 
 void AsyncServerSocket::addAcceptCallback(
-    AcceptCallback* callback,
-    EventBase* eventBase,
-    uint32_t maxAtOnce) {
+    AcceptCallback* callback, EventBase* eventBase, uint32_t maxAtOnce) {
   if (eventBase_) {
     eventBase_->dcheckIsInEventBaseThread();
   }
@@ -601,7 +648,7 @@ void AsyncServerSocket::addAcceptCallback(
   RemoteAcceptor* acceptor = nullptr;
   try {
     acceptor = new RemoteAcceptor(callback, connectionEventCallback_);
-    acceptor->start(eventBase, maxAtOnce, maxNumMsgsInQueue_);
+    acceptor->start(eventBase, maxAtOnce);
   } catch (...) {
     callbacks_.pop_back();
     delete acceptor;
@@ -611,8 +658,7 @@ void AsyncServerSocket::addAcceptCallback(
 }
 
 void AsyncServerSocket::removeAcceptCallback(
-    AcceptCallback* callback,
-    EventBase* eventBase) {
+    AcceptCallback* callback, EventBase* eventBase) {
   if (eventBase_) {
     eventBase_->dcheckIsInEventBaseThread();
   }
@@ -1000,8 +1046,7 @@ void AsyncServerSocket::handlerReady(
 }
 
 void AsyncServerSocket::dispatchSocket(
-    NetworkSocket socket,
-    SocketAddress&& address) {
+    NetworkSocket socket, SocketAddress&& address) {
   uint32_t startingIndex = callbackIndex_;
 
   // Short circuit if the callback is in the primary EventBase thread
@@ -1018,10 +1063,15 @@ void AsyncServerSocket::dispatchSocket(
   msg.type = MessageType::MSG_NEW_CONN;
   msg.address = std::move(address);
   msg.fd = socket;
+  auto queueTimeout = *queueTimeout_;
+  if (queueTimeout.count() != 0) {
+    msg.deadline = std::chrono::steady_clock::now() + queueTimeout;
+  }
 
   // Loop until we find a free queue to write to
   while (true) {
-    if (info->consumer->getQueue()->tryPutMessageNoThrow(std::move(msg))) {
+    if (info->consumer->getQueue().tryPutMessage(
+            std::move(msg), maxNumMsgsInQueue_)) {
       if (connectionEventCallback_) {
         connectionEventCallback_->onConnectionEnqueuedForAcceptorCallback(
             socket, addr);
@@ -1075,13 +1125,14 @@ void AsyncServerSocket::dispatchError(const char* msgstr, int errnoValue) {
   while (true) {
     // Short circuit if the callback is in the primary EventBase thread
     if (info->eventBase == nullptr || info->eventBase == this->eventBase_) {
-      std::runtime_error ex(
+      auto ex = make_exception_wrapper<std::runtime_error>(
           std::string(msgstr) + folly::to<std::string>(errnoValue));
-      info->callback->acceptError(ex);
+      info->callback->acceptError(std::move(ex));
       return;
     }
 
-    if (info->consumer->getQueue()->tryPutMessageNoThrow(std::move(msg))) {
+    if (info->consumer->getQueue().tryPutMessage(
+            std::move(msg), maxNumMsgsInQueue_)) {
       return;
     }
     // Fall through and try another callback

@@ -20,6 +20,8 @@
 #include <limits>
 #include <type_traits>
 
+#include <glog/logging.h>
+
 #include <folly/Likely.h>
 #include <folly/Portability.h>
 #include <folly/Range.h>
@@ -28,7 +30,6 @@
 #include <folly/experimental/Instructions.h>
 #include <folly/experimental/Select64.h>
 #include <folly/lang/Bits.h>
-#include <glog/logging.h>
 
 #if !FOLLY_X64
 #error BitVectorCoding.h requires x86_64
@@ -93,8 +94,7 @@ struct BitVectorEncoder {
 
   template <class RandomAccessIterator>
   static MutableCompressedList encode(
-      RandomAccessIterator begin,
-      RandomAccessIterator end) {
+      RandomAccessIterator begin, RandomAccessIterator end) {
     if (begin == end) {
       return MutableCompressedList();
     }
@@ -128,7 +128,7 @@ struct BitVectorEncoder {
     folly::Bits<folly::Unaligned<uint64_t>>::set(
         reinterpret_cast<folly::Unaligned<uint64_t>*>(block), inner);
 
-    if (skipQuantum != 0) {
+    if constexpr (skipQuantum != 0) {
       size_t nextSkipPointerSize = value / skipQuantum;
       while (skipPointersSize_ < nextSkipPointerSize) {
         auto pos = skipPointersSize_++;
@@ -137,7 +137,7 @@ struct BitVectorEncoder {
       }
     }
 
-    if (forwardQuantum != 0) {
+    if constexpr (forwardQuantum != 0) {
       if (size_ != 0 && (size_ % forwardQuantum == 0)) {
         const auto pos = size_ / forwardQuantum - 1;
         folly::storeUnaligned<SkipValueType>(
@@ -183,11 +183,11 @@ struct BitVectorEncoder<Value, SkipValue, kSkipQuantum, kForwardQuantum>::
     size_t bitVectorSizeInBytes = (upperBound / 8) + 1;
     layout.bits = bitVectorSizeInBytes;
 
-    if (skipQuantum != 0) {
+    if constexpr (skipQuantum != 0) {
       size_t numSkipPointers = upperBound / skipQuantum;
       layout.skipPointers = numSkipPointers * sizeof(SkipValueType);
     }
-    if (forwardQuantum != 0) {
+    if constexpr (forwardQuantum != 0) {
       size_t numForwardPointers = size / forwardQuantum;
       layout.forwardPointers = numForwardPointers * sizeof(SkipValueType);
     }
@@ -197,9 +197,7 @@ struct BitVectorEncoder<Value, SkipValue, kSkipQuantum, kForwardQuantum>::
     return layout;
   }
 
-  size_t bytes() const {
-    return bits + skipPointers + forwardPointers;
-  }
+  size_t bytes() const { return bits + skipPointers + forwardPointers; }
 
   template <class Range>
   BitVectorCompressedListBase<typename Range::iterator> openList(
@@ -307,13 +305,15 @@ class BitVectorReader : detail::ForwardPointers<Encoder::forwardQuantum>,
     position_ += n;
 
     // Use forward pointer.
-    if (Encoder::forwardQuantum > 0 && n > Encoder::forwardQuantum) {
-      const size_t steps = position_ / Encoder::forwardQuantum;
-      const size_t dest = folly::loadUnaligned<SkipValueType>(
-          this->forwardPointers_ + (steps - 1) * sizeof(SkipValueType));
+    if constexpr (Encoder::forwardQuantum > 0) {
+      if (n > Encoder::forwardQuantum) {
+        const size_t steps = position_ / Encoder::forwardQuantum;
+        const size_t dest = folly::loadUnaligned<SkipValueType>(
+            this->forwardPointers_ + (steps - 1) * sizeof(SkipValueType));
 
-      reposition(dest);
-      n = position_ + 1 - steps * Encoder::forwardQuantum;
+        reposition(dest);
+        n = position_ + 1 - steps * Encoder::forwardQuantum;
+      }
     }
 
     size_t cnt;
@@ -353,13 +353,15 @@ class BitVectorReader : detail::ForwardPointers<Encoder::forwardQuantum>,
       return true;
     }
 
-    if (Encoder::skipQuantum > 0 && v - value_ > Encoder::skipQuantum) {
-      size_t q = v / Encoder::skipQuantum;
-      auto skipPointer = folly::loadUnaligned<SkipValueType>(
-          this->skipPointers_ + (q - 1) * sizeof(SkipValueType));
-      position_ = static_cast<SizeType>(skipPointer) - 1;
+    if constexpr (Encoder::skipQuantum > 0) {
+      if (v - value_ > Encoder::skipQuantum) {
+        size_t q = v / Encoder::skipQuantum;
+        auto skipPointer = folly::loadUnaligned<SkipValueType>(
+            this->skipPointers_ + (q - 1) * sizeof(SkipValueType));
+        position_ = static_cast<SizeType>(skipPointer) - 1;
 
-      reposition(q * Encoder::skipQuantum);
+        reposition(q * Encoder::skipQuantum);
+      }
     }
 
     // Find the value.
@@ -388,17 +390,13 @@ class BitVectorReader : detail::ForwardPointers<Encoder::forwardQuantum>,
     return true;
   }
 
-  SizeType size() const {
-    return size_;
-  }
+  SizeType size() const { return size_; }
 
   bool valid() const {
     return position() < size(); // Also checks that position() != -1.
   }
 
-  SizeType position() const {
-    return position_;
-  }
+  SizeType position() const { return position_; }
   ValueType value() const {
     DCHECK(valid());
     return value_;

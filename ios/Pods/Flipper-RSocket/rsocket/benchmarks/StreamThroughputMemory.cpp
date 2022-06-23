@@ -140,8 +140,8 @@ class Factory : public ConnectionFactory {
       ProtocolVersion,
       ResumeStatus /* unused */) override {
     return folly::via(worker_.getEventBase(), [this] {
-      return ConnectedDuplexConnection{std::move(connection_),
-                                       *worker_.getEventBase()};
+      return ConnectedDuplexConnection{
+          std::move(connection_), *worker_.getEventBase()};
     });
   }
 

@@ -107,9 +107,8 @@ class TcpReaderWriter : public folly::AsyncTransportWrapper::WriteCallback,
     intrusive_ptr_release(this);
   }
 
-  void writeErr(
-      size_t,
-      const folly::AsyncSocketException& exn) noexcept override {
+  void writeErr(size_t, const folly::AsyncSocketException& exn) noexcept
+      override {
     closeErr(folly::exception_wrapper{std::make_exception_ptr(exn), exn});
     intrusive_ptr_release(this);
   }

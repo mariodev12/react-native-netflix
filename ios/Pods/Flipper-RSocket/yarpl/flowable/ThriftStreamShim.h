@@ -153,10 +153,18 @@ class ThriftStreamShim {
         : public apache::thrift::StreamServerCallback,
           public Subscriber<T> {
      public:
-      explicit StreamServerCallbackAdaptor(
+      StreamServerCallbackAdaptor(
           folly::Try<apache::thrift::StreamPayload> (*encode)(folly::Try<T>&&),
-          folly::EventBase* eb)
-          : encode_(encode), eb_(eb) {}
+          folly::EventBase* eb,
+          apache::thrift::Tile* interaction)
+          : encode_(encode), eb_(eb), interaction_(interaction) {}
+      ~StreamServerCallbackAdaptor() {
+        if (interaction_) {
+          std::move(eb_).add([interaction = interaction_](auto eb) {
+            interaction->__fbthrift_releaseRef(*eb);
+          });
+        }
+      }
       // StreamServerCallback implementation
       bool onStreamRequestN(uint64_t tokens) override {
         if (!subscription_) {
@@ -230,8 +238,9 @@ class ThriftStreamShim {
       std::shared_ptr<Subscription> subscription_;
       uint32_t tokensBeforeSubscribe_{0};
       folly::Try<apache::thrift::StreamPayload> (*encode_)(folly::Try<T>&&);
-      folly::EventBase* eb_;
+      folly::Executor::KeepAlive<folly::EventBase> eb_;
       std::shared_ptr<StreamServerCallbackAdaptor> self_;
+      apache::thrift::Tile* interaction_;
     };
 
     return apache::thrift::ServerStream<T>(
@@ -239,18 +248,20 @@ class ThriftStreamShim {
             folly::Executor::KeepAlive<>,
             folly::Try<apache::thrift::StreamPayload> (*encode)(
                 folly::Try<T> &&)) mutable {
-          return [flowable = std::move(flowable), encode](
-                     apache::thrift::FirstResponsePayload&& payload,
-                     apache::thrift::StreamClientCallback* callback,
-                     folly::EventBase* clientEb) mutable {
-            auto stream =
-                std::make_shared<StreamServerCallbackAdaptor>(encode, clientEb);
-            stream->takeRef(stream);
-            stream->resetClientCallback(*callback);
-            std::ignore = callback->onFirstResponse(
-                std::move(payload), clientEb, stream.get());
-            flowable->subscribe(std::move(stream));
-          };
+          return apache::thrift::detail::ServerStreamFactory(
+              [flowable = std::move(flowable), encode](
+                  apache::thrift::FirstResponsePayload&& payload,
+                  apache::thrift::StreamClientCallback* callback,
+                  folly::EventBase* clientEb,
+                  apache::thrift::Tile* interaction) mutable {
+                auto stream = std::make_shared<StreamServerCallbackAdaptor>(
+                    encode, clientEb, interaction);
+                stream->takeRef(stream);
+                stream->resetClientCallback(*callback);
+                std::ignore = callback->onFirstResponse(
+                    std::move(payload), clientEb, stream.get());
+                flowable->subscribe(std::move(stream));
+              });
         });
   }
 };

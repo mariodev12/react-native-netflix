@@ -16,10 +16,11 @@
 
 #pragma once
 
-#include <folly/lang/Bits.h>
-#include <glog/logging.h>
-
 #include <atomic>
+
+#include <folly/lang/Bits.h>
+
+#include <glog/logging.h>
 
 namespace folly {
 
@@ -47,6 +48,9 @@ namespace folly {
 /// - erase()
 /// - used()
 /// - available()
+///
+/// This implementation guarantees that a copy from a map with
+/// tombstones will have at least one available empty element.
 ///
 template <typename Key, typename Value>
 class SingleWriterFixedHashMap {
@@ -79,13 +83,19 @@ class SingleWriterFixedHashMap {
       : capacity_(folly::nextPowTwo(capacity)) {}
 
   explicit SingleWriterFixedHashMap(
-      size_t capacity,
-      const SingleWriterFixedHashMap& o)
+      size_t capacity, const SingleWriterFixedHashMap& o)
       : capacity_(folly::nextPowTwo(capacity)) {
     if (o.empty()) {
       return;
     }
     elem_ = std::make_unique<Elem[]>(capacity_);
+    if (capacity_ == o.capacity_ &&
+        (o.used_ < o.capacity_ || o.size() == o.capacity_)) {
+      memcpy(elem_.get(), o.elem_.get(), capacity_ * sizeof(Elem));
+      used_ = o.used_;
+      setSize(o.size());
+      return;
+    }
     for (size_t i = 0; i < o.capacity_; ++i) {
       Elem& e = o.elem_[i];
       if (e.valid()) {
@@ -102,28 +112,20 @@ class SingleWriterFixedHashMap {
     return Iterator(*this, capacity_);
   }
 
-  size_t capacity() const {
-    return capacity_;
-  }
+  size_t capacity() const { return capacity_; }
 
   /* not data-race-free, to be called only by the single writer */
-  size_t used() const {
-    return used_;
-  }
+  size_t used() const { return used_; }
 
   /* not-data race-free, to be called only by the single writer */
-  size_t available() const {
-    return capacity_ - used_;
-  }
+  size_t available() const { return capacity_ - used_; }
 
   /* data-race-free, can be called by readers */
   FOLLY_ALWAYS_INLINE size_t size() const {
     return size_.load(std::memory_order_acquire);
   }
 
-  FOLLY_ALWAYS_INLINE bool empty() const {
-    return size() == 0;
-  }
+  FOLLY_ALWAYS_INLINE bool empty() const { return size() == 0; }
 
   bool insert(Key key, Value value) {
     if (!elem_) {
@@ -191,17 +193,13 @@ class SingleWriterFixedHashMap {
     return index;
   }
 
-  void setSize(size_t size) {
-    size_.store(size, std::memory_order_release);
-  }
+  void setSize(size_t size) { size_.store(size, std::memory_order_release); }
 
   FOLLY_ALWAYS_INLINE size_t reader_find(Key key) const {
     return find_internal(key);
   }
 
-  size_t writer_find(Key key) {
-    return find_internal(key);
-  }
+  size_t writer_find(Key key) { return find_internal(key); }
 
   FOLLY_ALWAYS_INLINE size_t find_internal(Key key) const {
     if (!empty()) {
@@ -242,33 +240,23 @@ class SingleWriterFixedHashMap {
       return state_.load(std::memory_order_acquire);
     }
 
-    FOLLY_ALWAYS_INLINE bool valid() const {
-      return state() == State::VALID;
-    }
+    FOLLY_ALWAYS_INLINE bool valid() const { return state() == State::VALID; }
 
-    FOLLY_ALWAYS_INLINE Key key() const {
-      return key_;
-    }
+    FOLLY_ALWAYS_INLINE Key key() const { return key_; }
 
     FOLLY_ALWAYS_INLINE Value value() const {
       return value_.load(std::memory_order_relaxed);
     }
 
-    void setKey(Key key) {
-      key_ = key;
-    }
+    void setKey(Key key) { key_ = key; }
 
     void setValue(Value value) {
       value_.store(value, std::memory_order_relaxed);
     }
 
-    void setValid() {
-      state_.store(State::VALID, std::memory_order_release);
-    }
+    void setValid() { state_.store(State::VALID, std::memory_order_release); }
 
-    void erase() {
-      state_.store(State::TOMBSTONE, std::memory_order_release);
-    }
+    void erase() { state_.store(State::TOMBSTONE, std::memory_order_release); }
   }; // Elem
 
  public:
@@ -313,7 +301,9 @@ class SingleWriterFixedHashMap {
     friend class SingleWriterFixedHashMap;
 
     explicit Iterator(const SingleWriterFixedHashMap& m, size_t i = 0)
-        : elem_(m.elem_.get()), capacity_(m.capacity_), index_(i) {
+        : elem_(i == m.capacity_ ? nullptr : m.elem_.get()),
+          capacity_(m.capacity_),
+          index_(i) {
       if (index_ < capacity_) {
         next();
       }

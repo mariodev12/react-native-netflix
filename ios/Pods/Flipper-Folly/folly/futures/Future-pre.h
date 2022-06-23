@@ -108,9 +108,7 @@ struct argResult {
   using ArgList = ArgType<Args...>;
   using Result = invoke_result_t<F, Args...>;
   using ArgsSize = index_constant<sizeof...(Args)>;
-  static constexpr bool isTry() {
-    return isTry_;
-  }
+  static constexpr bool isTry() { return isTry_; }
 };
 
 template <typename T, typename F>
@@ -219,23 +217,21 @@ class DeferredExecutor;
 
 template <class T, class F>
 auto makeExecutorLambda(
-    F&& func,
-    typename std::enable_if<is_invocable_v<F>, int>::type = 0) {
+    F&& func, typename std::enable_if<is_invocable_v<F>, int>::type = 0) {
   return
-      [func = std::forward<F>(func)](Executor::KeepAlive<>&&, auto&&) mutable {
-        return std::forward<F>(func)();
+      [func = static_cast<F&&>(func)](Executor::KeepAlive<>&&, auto&&) mutable {
+        return static_cast<F&&>(func)();
       };
 }
 
 template <class T, class F>
 auto makeExecutorLambda(
-    F&& func,
-    typename std::enable_if<!is_invocable_v<F>, int>::type = 0) {
+    F&& func, typename std::enable_if<!is_invocable_v<F>, int>::type = 0) {
   using R = futures::detail::callableResult<T, F&&>;
-  return [func = std::forward<F>(func)](
+  return [func = static_cast<F&&>(func)](
              Executor::KeepAlive<>&&,
              typename R::Arg::ArgList::FirstArg&& param) mutable {
-    return std::forward<F>(func)(std::forward<decltype(param)>(param));
+    return static_cast<F&&>(func)(static_cast<decltype(param)>(param));
   };
 }
 

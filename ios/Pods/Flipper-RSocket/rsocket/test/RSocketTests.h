@@ -25,7 +25,7 @@ namespace tests {
 namespace client_server {
 
 class RSocketStatsFlowControl : public RSocketStats {
-public:
+ public:
   void frameWritten(FrameType frameType) {
     if (frameType == FrameType::REQUEST_N) {
       ++writeRequestN_;
@@ -38,7 +38,7 @@ public:
     }
   }
 
-public:
+ public:
   int writeRequestN_{0};
   int readRequestN_{0};
 };

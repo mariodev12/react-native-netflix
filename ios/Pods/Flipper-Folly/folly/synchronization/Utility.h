@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include <folly/Portability.h>
 #include <mutex>
+
+#include <folly/Portability.h>
 
 namespace folly {
 
@@ -41,8 +42,7 @@ namespace folly {
  */
 template <typename Mutex, typename... Args>
 FOLLY_NODISCARD std::unique_lock<Mutex> make_unique_lock(
-    Mutex& mutex,
-    Args&&... args) {
+    Mutex& mutex, Args&&... args) {
   return std::unique_lock<Mutex>{mutex, std::forward<Args>(args)...};
 }
 

@@ -40,8 +40,7 @@ class AsyncPipeReader : public EventHandler,
           UniquePtr;
 
   static UniquePtr newReader(
-      folly::EventBase* eventBase,
-      NetworkSocket pipeFd) {
+      folly::EventBase* eventBase, NetworkSocket pipeFd) {
     return UniquePtr(new AsyncPipeReader(eventBase, pipeFd));
   }
 
@@ -102,8 +101,7 @@ class AsyncPipeWriter : public EventHandler,
           UniquePtr;
 
   static UniquePtr newWriter(
-      folly::EventBase* eventBase,
-      NetworkSocket pipeFd) {
+      folly::EventBase* eventBase, NetworkSocket pipeFd) {
     return UniquePtr(new AsyncPipeWriter(eventBase, pipeFd));
   }
 
@@ -128,9 +126,7 @@ class AsyncPipeWriter : public EventHandler,
   /**
    * Returns true if the pipe is closed
    */
-  bool closed() const {
-    return (fd_ == NetworkSocket() || closeOnEmpty_);
-  }
+  bool closed() const { return (fd_ == NetworkSocket() || closeOnEmpty_); }
 
   /**
    * Notify the pipe to close as soon as all pending writes complete
@@ -146,9 +142,7 @@ class AsyncPipeWriter : public EventHandler,
    * Return true if there are currently writes pending (eg: the pipe is blocked
    * for writing)
    */
-  bool hasPendingWrites() const {
-    return !queue_.empty();
-  }
+  bool hasPendingWrites() const { return !queue_.empty(); }
 
   // AsyncWriter methods
   void write(
@@ -180,9 +174,7 @@ class AsyncPipeWriter : public EventHandler,
   bool closeOnEmpty_{false};
   std::function<void(NetworkSocket)> closeCb_;
 
-  ~AsyncPipeWriter() override {
-    closeNow();
-  }
+  ~AsyncPipeWriter() override { closeNow(); }
 };
 
 } // namespace folly

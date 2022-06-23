@@ -73,8 +73,8 @@ class SSLAcceptRunner {
    * value to the second function. This can be used to run the SSL_accept
    * in different contexts.
    */
-  virtual void run(Function<int()> acceptFunc, Function<void(int)> finallyFunc)
-      const {
+  virtual void run(
+      Function<int()> acceptFunc, Function<void(int)> finallyFunc) const {
     finallyFunc(acceptFunc());
   }
 };
@@ -84,6 +84,11 @@ class SSLAcceptRunner {
  */
 class SSLContext {
  public:
+  struct SessionLifecycleCallbacks {
+    virtual void onNewSession(SSL*, folly::ssl::SSLSessionUniquePtr) = 0;
+    virtual ~SessionLifecycleCallbacks() = default;
+  };
+
   enum SSLVersion {
     SSLv2,
     SSLv3,
@@ -93,6 +98,7 @@ class SSLContext {
 
   /**
    * Defines the way that peers are verified.
+   * TODO: remove this in favor of the specific client and server enums
    **/
   enum SSLVerifyPeerEnum {
     // Used by AsyncSSLSocket to delegate to the SSLContext's setting
@@ -110,6 +116,27 @@ class SSLContext {
     NO_VERIFY
   };
 
+  enum class VerifyClientCertificate {
+    // Request a cert and verify it. Fail if verification fails or no
+    // cert is presented
+    ALWAYS,
+    // Request a cert from the peer and verify if one is presented.
+    // Will fail if verification fails.
+    // Do not fail if no cert is presented.
+    IF_PRESENTED,
+    // No verification is done and no cert is requested.
+    DO_NOT_REQUEST
+  };
+
+  enum class VerifyServerCertificate {
+    // Server cert will be presented unless anon cipher,
+    // Verficiation WILL happen and a failure will result in termination
+    IF_PRESENTED,
+    // Server cert will be presented unless anon cipher,
+    // Verification WILL happen but the result will be ignored
+    IGNORE_VERIFY_RESULT
+  };
+
   struct NextProtocolsItem {
     NextProtocolsItem(int wt, const std::list<std::string>& ptcls)
         : weight(wt), protocols(ptcls) {}
@@ -119,10 +146,7 @@ class SSLContext {
 
   // Function that selects a client protocol given the server's list
   using ClientProtocolFilterCallback = bool (*)(
-      unsigned char**,
-      unsigned int*,
-      const unsigned char*,
-      unsigned int);
+      unsigned char**, unsigned int*, const unsigned char*, unsigned int);
 
   /**
    * Convenience function to call getErrors() with the current errno value.
@@ -130,16 +154,14 @@ class SSLContext {
    * Make sure that you only call this when there was no intervening operation
    * since the last OpenSSL error that may have changed the current errno value.
    */
-  static std::string getErrors() {
-    return getErrors(errno);
-  }
+  static std::string getErrors() { return getErrors(errno); }
 
   /**
    * Constructor.
    *
    * @param version The lowest or oldest SSL version to support.
    */
-  explicit SSLContext(SSLVersion version = TLSv1);
+  explicit SSLContext(SSLVersion version = TLSv1_2);
   /**
    * Constructor that helps ease migrations by directly wrapping a provided
    * SSL_CTX*
@@ -148,22 +170,22 @@ class SSLContext {
   virtual ~SSLContext();
 
   /**
-   * Set default ciphers to be used in SSL handshake process.
+   * Set default TLS 1.2 and below ciphers to be used in SSL handshake process.
    *
    * @param ciphers A list of ciphers to use for TLSv1.0
    */
   virtual void ciphers(const std::string& ciphers);
 
   /**
-   * Low-level method that attempts to set the provided ciphers on the
-   * SSL_CTX object, and throws if something goes wrong.
+   * Low-level method that attempts to set the provided TLS 1.2
+   * and below ciphers on the SSL_CTX object,
+   * and throws if something goes wrong.
    */
   virtual void setCiphersOrThrow(const std::string& ciphers);
 
   /**
-   * Set default ciphers to be used in SSL handshake process.
+   * Set default TLS 1.2 and below ciphers to be used in SSL handshake process.
    */
-
   template <typename Iterator>
   void setCipherList(Iterator ibegin, Iterator iend) {
     if (ibegin != iend) {
@@ -185,20 +207,18 @@ class SSLContext {
   }
 
   /**
-   * Sets the signature algorithms to be used during SSL negotiation
-   * for TLS1.2+.
+   * Low-level method that attempts to set the provided signature
+   * algorithms on the SSL_CTX object for TLS1.2+,
+   * and throws if something goes wrong.
    */
+  virtual void setSigAlgsOrThrow(const std::string& sigAlgs);
 
   template <typename Iterator>
   void setSignatureAlgorithms(Iterator ibegin, Iterator iend) {
     if (ibegin != iend) {
-#if OPENSSL_VERSION_NUMBER >= 0x1000200fL
       std::string opensslSigAlgsList;
       join(":", ibegin, iend, opensslSigAlgsList);
-      if (!SSL_CTX_set1_sigalgs_list(ctx_, opensslSigAlgsList.c_str())) {
-        throw std::runtime_error("SSL_CTX_set1_sigalgs_list " + getErrors());
-      }
-#endif
+      setSigAlgsOrThrow(opensslSigAlgsList);
     }
   }
 
@@ -239,6 +259,15 @@ class SSLContext {
    *                       method to use.
    */
   virtual void setVerificationOption(const SSLVerifyPeerEnum& verifyPeer);
+  /**
+   * Method to set verification options for client and server separately.
+   * This is highly recommended as these options are much clearer and the other
+   * way will be going away soon
+   */
+  virtual void setVerificationOption(
+      const VerifyClientCertificate& verifyClient);
+  virtual void setVerificationOption(
+      const VerifyServerCertificate& verifyServer);
 
   /**
    * Method to check if peer verfication is set.
@@ -247,9 +276,10 @@ class SSLContext {
    *
    */
   virtual bool needsPeerVerification() {
-    return (
-        verifyPeer_ == SSLVerifyPeerEnum::VERIFY ||
-        verifyPeer_ == SSLVerifyPeerEnum::VERIFY_REQ_CLIENT_CERT);
+    /* TODO this is ugly and i can't think of a reason this should exist
+     * will think of what i want to do with this later
+     */
+    return getVerificationMode() != SSL_VERIFY_NONE;
   }
 
   /**
@@ -263,6 +293,8 @@ class SSLContext {
    * @return mode flags that can be used with SSL_set_verify
    */
   static int getVerificationMode(const SSLVerifyPeerEnum& verifyPeer);
+  static int getVerificationMode(const VerifyClientCertificate& verifyClient);
+  static int getVerificationMode(const VerifyServerCertificate& verifyServer);
 
   /**
    * Method to fetch Verification mode determined by the options
@@ -326,8 +358,7 @@ class SSLContext {
    * @param pkey A PEM formatted key
    */
   virtual void loadCertKeyPairFromBufferPEM(
-      folly::StringPiece cert,
-      folly::StringPiece pkey);
+      folly::StringPiece cert, folly::StringPiece pkey);
 
   /**
    * Load cert and key from files. Guaranteed to throw if cert and key mismatch.
@@ -503,9 +534,7 @@ class SSLContext {
   /**
    * Gets the underlying SSL_CTX for advanced usage
    */
-  SSL_CTX* getSSLCtx() const {
-    return ctx_;
-  }
+  SSL_CTX* getSSLCtx() const { return ctx_; }
 
   /**
    * Examine OpenSSL's error stack, and return a string description of the
@@ -515,12 +544,8 @@ class SSLContext {
    */
   static std::string getErrors(int errnoCopy);
 
-  bool checkPeerName() {
-    return checkPeerName_;
-  }
-  std::string peerFixedName() {
-    return peerFixedName_;
-  }
+  bool checkPeerName() { return checkPeerName_; }
+  std::string peerFixedName() { return peerFixedName_; }
 
 #if defined(SSL_MODE_HANDSHAKE_CUTTHROUGH)
   /**
@@ -543,9 +568,7 @@ class SSLContext {
     sslAcceptRunner_ = std::move(runner);
   }
 
-  const SSLAcceptRunner* sslAcceptRunner() {
-    return sslAcceptRunner_.get();
-  }
+  const SSLAcceptRunner* sslAcceptRunner() { return sslAcceptRunner_.get(); }
 
   /**
    * Helper to match a hostname versus a pattern.
@@ -559,13 +582,50 @@ class SSLContext {
    */
   void enableTLS13();
 
+  /**
+   * Disable TLS 1.3 in OpenSSL versions that support it.
+   */
+  void disableTLS13();
+
+  /**
+   * Get SSLContext from the ex data of a SSL_CTX.
+   */
+  static SSLContext* getFromSSLCtx(const SSL_CTX* ctx);
+
+  void setSessionLifecycleCallbacks(
+      std::unique_ptr<SessionLifecycleCallbacks> cb);
+
+#if FOLLY_OPENSSL_PREREQ(1, 1, 1)
+  /**
+   * Set the TLS 1.3 ciphersuites to be used in the SSL handshake, in
+   * order of preference.
+   * Throws if unsuccessful.
+   */
+  void setCiphersuitesOrThrow(const std::string& ciphersuites);
+
+  /**
+   * Enables/disables non-DHE (Ephemeral Diffie-Hellman) PSK key
+   * exchange for TLS 1.3 resumption. Note that this key exchange
+   * mode gives up forward secrecy on the resumed session.
+   */
+  void setAllowNoDheKex(bool flag);
+#endif
+
   [[deprecated("Use folly::ssl::init")]] static void initializeOpenSSL();
 
  protected:
   SSL_CTX* ctx_;
 
  private:
+  // TODO deprecate this, it's confusing and the default is bad
   SSLVerifyPeerEnum verifyPeer_{SSLVerifyPeerEnum::NO_VERIFY};
+
+  /* Set one of these values depending on whether you will use the context
+   * for a server or client.*/
+  VerifyClientCertificate verifyClient_{
+      VerifyClientCertificate::DO_NOT_REQUEST};
+  VerifyServerCertificate verifyServer_{
+      VerifyServerCertificate::IGNORE_VERIFY_RESULT};
 
   bool checkPeerName_;
   std::string peerFixedName_;
@@ -596,10 +656,7 @@ class SSLContext {
   std::discrete_distribution<int> nextProtocolDistribution_;
 
   static int advertisedNextProtocolCallback(
-      SSL* ssl,
-      const unsigned char** out,
-      unsigned int* outlen,
-      void* data);
+      SSL* ssl, const unsigned char** out, unsigned int* outlen, void* data);
 
   static int alpnSelectCallback(
       SSL* ssl,
@@ -627,18 +684,22 @@ class SSLContext {
    * generically for performing logic after the Client Hello comes in.
    */
   static int baseServerNameOpenSSLCallback(
-      SSL* ssl,
-      int* al /* alert (return value) */,
-      void* data);
+      SSL* ssl, int* al /* alert (return value) */, void* data);
 #endif
 
   std::string providedCiphersString_;
+
+  void setupCtx(SSL_CTX* ctx);
+
+  std::unique_ptr<SessionLifecycleCallbacks> sessionLifecycleCallbacks_{
+      nullptr};
+
+  static int newSessionCallback(SSL* ssl, SSL_SESSION* session);
 };
 
 typedef std::shared_ptr<SSLContext> SSLContextPtr;
 
 std::ostream& operator<<(
-    std::ostream& os,
-    const folly::PasswordCollector& collector);
+    std::ostream& os, const folly::PasswordCollector& collector);
 
 } // namespace folly

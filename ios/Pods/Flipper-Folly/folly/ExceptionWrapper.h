@@ -118,7 +118,6 @@ FOLLY_ERASE auto fold(Fn&& fn, A&& a, B&& b, Bs&&... bs) {
 //! little overhead.
 //!
 //! \par Example usage:
-//! \par
 //! \code
 //! exception_wrapper globalExceptionWrapper;
 //!
@@ -244,9 +243,10 @@ class exception_wrapper final {
       ThrownTag,
       std::conditional_t<
           sizeof(T) <= sizeof(Buffer::Storage) &&
-              alignof(T) <= alignof(Buffer::Storage) &&
-              noexcept(T(std::declval<T&&>())) &&
-              noexcept(T(std::declval<T const&>())),
+              alignof(T) <=
+                  alignof(Buffer::Storage)&& noexcept(
+                      T(std::declval<
+                          T&&>()))&& noexcept(T(std::declval<T const&>())),
           InSituTag,
           OnHeapTag>>;
 
@@ -262,11 +262,9 @@ class exception_wrapper final {
         "greater than one. as_int_ below will not work!");
 
     static std::uintptr_t as_int_(
-        std::exception_ptr const& ptr,
-        std::exception const& e) noexcept;
+        std::exception_ptr const& ptr, std::exception const& e) noexcept;
     static std::uintptr_t as_int_(
-        std::exception_ptr const& ptr,
-        AnyException e) noexcept;
+        std::exception_ptr const& ptr, AnyException e) noexcept;
     bool has_exception_() const;
     std::exception const* as_exception_() const;
     std::type_info const* as_type_() const;
@@ -290,19 +288,20 @@ class exception_wrapper final {
     static std::type_info const* type_(exception_wrapper const*);
     static std::exception const* get_exception_(exception_wrapper const* that);
     static exception_wrapper get_exception_ptr_(exception_wrapper const* that);
-    static constexpr VTable const ops_{copy_,
-                                       move_,
-                                       delete_,
-                                       throw_,
-                                       type_,
-                                       get_exception_,
-                                       get_exception_ptr_};
+    static constexpr VTable const ops_{
+        copy_,
+        move_,
+        delete_,
+        throw_,
+        type_,
+        get_exception_,
+        get_exception_ptr_};
   };
 
   struct SharedPtr {
     struct Base {
       std::type_info const* info_;
-      Base() = default;
+      Base() = delete;
       explicit Base(std::type_info const& info) : info_(&info) {}
       virtual ~Base() {}
       virtual void throw_() const = 0;
@@ -313,7 +312,7 @@ class exception_wrapper final {
     struct Impl final : public Base {
       static_assert(IsStdException<Ex>::value, "only deriving std::exception");
       Ex ex_;
-      Impl() = default;
+      Impl() : Base{typeid(Ex)}, ex_() {}
       // clang-format off
       template <typename... As>
       explicit Impl(As&&... as)
@@ -379,6 +378,8 @@ class exception_wrapper final {
  public:
   static exception_wrapper from_exception_ptr(
       std::exception_ptr const& eptr) noexcept;
+  static exception_wrapper from_exception_ptr(
+      std::exception_ptr&& eptr) noexcept;
 
   //! Default-constructs an empty `exception_wrapper`
   //! \post `type() == none()`
@@ -538,7 +539,7 @@ class exception_wrapper final {
 
   //! Throws the wrapped expression nested into another exception.
   //! \pre `bool(*this)`
-  //! \tparam ex Exception in *this will be thrown nested into ex;
+  //! \param ex Exception in *this will be thrown nested into ex;
   //      see std::throw_with_nested() for details on this semantic.
   template <class Ex>
   [[noreturn]] void throw_with_nested(Ex&& ex) const;
@@ -599,7 +600,7 @@ class exception_wrapper final {
   //! ew.handle(/*...* /, [](...) { /* handle unknown exception */ } )
   //! \endcode
   //! \pre `!*this`
-  //! \tparam CatchFns... A pack of unary monomorphic function object types.
+  //! \tparam CatchFns A pack of unary monomorphic function object types.
   //! \param fns A pack of unary monomorphic function objects to be treated as
   //!     an ordered list of potential exception handlers.
   //! \note The handlers may or may not be invoked with an active exception.
@@ -633,8 +634,7 @@ exception_wrapper make_exception_wrapper(As&&... as) {
  */
 template <class Ch>
 std::basic_ostream<Ch>& operator<<(
-    std::basic_ostream<Ch>& sout,
-    exception_wrapper const& ew) {
+    std::basic_ostream<Ch>& sout, exception_wrapper const& ew) {
   return sout << ew.what();
 }
 
@@ -699,9 +699,21 @@ inline exception_wrapper try_and_catch_(F&& f) {
 //!   }
 //! });
 //! \endcode
-template <typename... Exceptions, typename F>
-exception_wrapper try_and_catch(F&& fn) {
-  return detail::try_and_catch_<F, Exceptions...>(std::forward<F>(fn));
+template <typename Exn, typename... Exns, typename F>
+[[deprecated("no longer specify exception types explicitly")]] exception_wrapper
+try_and_catch(F&& fn) {
+  return detail::try_and_catch_<F, Exn, Exns...>(std::forward<F>(fn));
+}
+template <typename F>
+exception_wrapper try_and_catch(F&& fn) noexcept {
+  try {
+    static_cast<F&&>(fn)();
+    return exception_wrapper{};
+  } catch (std::exception const& ex) {
+    return exception_wrapper{std::current_exception(), ex};
+  } catch (...) {
+    return exception_wrapper{std::current_exception()};
+  }
 }
 } // namespace folly
 

@@ -61,7 +61,7 @@ void RSocketServer::shutdownAndWait() {
     closingFutures.push_back(acceptor.close());
   }
 
-  folly::collectAllSemiFuture(closingFutures).get();
+  folly::collectAll(closingFutures).get();
 
   // Close off all outstanding connections.
   connectionSet_->shutdownAndWait();

@@ -37,14 +37,14 @@ class ExecutorWithPriorityImpl : public virtual Executor {
   }
 
  protected:
-  bool keepAliveAcquire() override {
+  bool keepAliveAcquire() noexcept override {
     auto keepAliveCounter =
         keepAliveCounter_.fetch_add(1, std::memory_order_relaxed);
     DCHECK(keepAliveCounter > 0);
     return true;
   }
 
-  void keepAliveRelease() override {
+  void keepAliveRelease() noexcept override {
     auto keepAliveCounter =
         keepAliveCounter_.fetch_sub(1, std::memory_order_acq_rel);
     DCHECK(keepAliveCounter > 0);
@@ -55,8 +55,7 @@ class ExecutorWithPriorityImpl : public virtual Executor {
 
  private:
   ExecutorWithPriorityImpl(
-      Executor::KeepAlive<Executor> executor,
-      Callback&& callback)
+      Executor::KeepAlive<Executor> executor, Callback&& callback)
       : executor_(std::move(executor)), callback_(std::move(callback)) {}
   std::atomic<ssize_t> keepAliveCounter_{1};
   Executor::KeepAlive<Executor> executor_;
@@ -66,8 +65,7 @@ class ExecutorWithPriorityImpl : public virtual Executor {
 
 template <typename Callback>
 Executor::KeepAlive<> ExecutorWithPriority::createDynamic(
-    Executor::KeepAlive<Executor> executor,
-    Callback&& callback) {
+    Executor::KeepAlive<Executor> executor, Callback&& callback) {
   return detail::ExecutorWithPriorityImpl<std::decay_t<Callback>>::create(
       executor, std::move(callback));
 }

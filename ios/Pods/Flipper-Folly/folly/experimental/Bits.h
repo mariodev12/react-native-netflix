@@ -54,12 +54,8 @@ struct BitsTraits<
     Unaligned<T>,
     typename std::enable_if<(std::is_integral<T>::value)>::type> {
   typedef T UnderlyingType;
-  static T load(const Unaligned<T>& x) {
-    return x.value;
-  }
-  static void store(Unaligned<T>& x, T v) {
-    x.value = v;
-  }
+  static T load(const Unaligned<T>& x) { return x.value; }
+  static void store(Unaligned<T>& x, T v) { x.value = v; }
   static T loadRMW(const Unaligned<T>& x) {
     FOLLY_PUSH_WARNING
     FOLLY_GNU_DISABLE_WARNING("-Wuninitialized")
@@ -98,12 +94,8 @@ struct BitsTraits<
     T,
     typename std::enable_if<(std::is_integral<T>::value)>::type> {
   typedef T UnderlyingType;
-  static T load(const T& x) {
-    return x;
-  }
-  static void store(T& x, T v) {
-    x = v;
-  }
+  static T load(const T& x) { return x; }
+  static void store(T& x, T v) { x = v; }
   static T loadRMW(const T& x) {
     FOLLY_PUSH_WARNING
     FOLLY_GNU_DISABLE_WARNING("-Wuninitialized")
@@ -136,16 +128,12 @@ struct Bits {
   /**
    * Byte index of the given bit.
    */
-  static constexpr size_t blockIndex(size_t bit) {
-    return bit / bitsPerBlock;
-  }
+  static constexpr size_t blockIndex(size_t bit) { return bit / bitsPerBlock; }
 
   /**
    * Offset in block of the given bit.
    */
-  static constexpr size_t bitOffset(size_t bit) {
-    return bit % bitsPerBlock;
-  }
+  static constexpr size_t bitOffset(size_t bit) { return bit % bitsPerBlock; }
 
   /**
    * Number of blocks used by the given number of bits.
@@ -192,8 +180,8 @@ struct Bits {
  private:
   // Same as set, assumes all bits are in the same block.
   // (bitStart < sizeof(T) * 8, bitStart + count <= sizeof(T) * 8)
-  static void
-  innerSet(T* p, size_t bitStart, size_t count, UnderlyingType value);
+  static void innerSet(
+      T* p, size_t bitStart, size_t count, UnderlyingType value);
 
   // Same as get, assumes all bits are in the same block.
   // (bitStart < sizeof(T) * 8, bitStart + count <= sizeof(T) * 8)
@@ -224,10 +212,7 @@ inline void Bits<T, Traits>::clear(T* p, size_t bit) {
 
 template <class T, class Traits>
 inline void Bits<T, Traits>::set(
-    T* p,
-    size_t bitStart,
-    size_t count,
-    UnderlyingType value) {
+    T* p, size_t bitStart, size_t count, UnderlyingType value) {
   DCHECK_LE(count, sizeof(UnderlyingType) * 8);
   size_t cut = bitsPerBlock - count;
   if (cut != 8 * sizeof(UnderlyingType)) {
@@ -257,10 +242,7 @@ inline void Bits<T, Traits>::set(
 
 template <class T, class Traits>
 inline void Bits<T, Traits>::innerSet(
-    T* p,
-    size_t offset,
-    size_t count,
-    UnderlyingType value) {
+    T* p, size_t offset, size_t count, UnderlyingType value) {
   // Mask out bits and set new value
   UnderlyingType v = Traits::loadRMW(*p);
   v &= ~(ones(count) << offset);

@@ -16,11 +16,12 @@
 
 #pragma once
 
+#include <atomic>
+#include <mutex>
+
 #include <folly/Optional.h>
 #include <folly/concurrency/detail/ConcurrentHashMap-detail.h>
 #include <folly/synchronization/Hazptr.h>
-#include <atomic>
-#include <mutex>
 
 namespace folly {
 
@@ -35,8 +36,7 @@ namespace folly {
  *      atomic maps (AtomicUnorderedMap, AtomicHashMap), BUT only
  *      if you can perfectly size the atomic maps, and you don't
  *      need erase().  If you don't know the size in advance or
- *      your workload frequently calls erase(), this is the
- *      better choice.
+ *      your workload needs erase(), this is the better choice.
  *
  * The interface is as close to std::unordered_map as possible, but there
  * are a handful of changes:
@@ -99,7 +99,7 @@ namespace folly {
  * old value until the new value is completely constructed and
  * inserted.
  *
- * Q: Why does map.erase() not actually destroy elements?
+ * Q: Why do map.erase() and clear() not actually destroy elements?
  *
  * A: Hazard Pointers are used to improve the performance of
  * concurrent access.  They can be thought of as a simple Garbage
@@ -137,8 +137,10 @@ template <
         typename,
         typename,
         typename,
-        template <typename> class,
-        class> class Impl = detail::concurrenthashmap::bucket::BucketTable>
+        template <typename>
+        class,
+        class>
+    class Impl = detail::concurrenthashmap::bucket::BucketTable>
 class ConcurrentHashMap {
   using SegmentT = detail::ConcurrentHashMapSegment<
       KeyType,
@@ -150,6 +152,10 @@ class ConcurrentHashMap {
       Atom,
       Mutex,
       Impl>;
+  template <typename K, typename T>
+  using EnableHeterogeneousFind = std::enable_if_t<
+      detail::EligibleForHeterogeneousFind<KeyType, HashFn, KeyEqual, K>::value,
+      T>;
 
   float load_factor_ = SegmentT::kDefaultLoadFactor;
 
@@ -166,6 +172,27 @@ class ConcurrentHashMap {
   typedef KeyEqual key_equal;
   typedef ConstIterator const_iterator;
 
+ private:
+  template <typename K, typename T>
+  using EnableHeterogeneousInsert = std::enable_if_t<
+      ::folly::detail::
+          EligibleForHeterogeneousInsert<KeyType, HashFn, KeyEqual, K>::value,
+      T>;
+
+  template <typename K>
+  using IsIter = std::is_same<ConstIterator, remove_cvref_t<K>>;
+
+  template <typename K, typename T>
+  using EnableHeterogeneousErase = std::enable_if_t<
+      ::folly::detail::EligibleForHeterogeneousFind<
+          KeyType,
+          HashFn,
+          KeyEqual,
+          std::conditional_t<IsIter<K>::value, KeyType, K>>::value &&
+          !IsIter<K>::value,
+      T>;
+
+ public:
   /*
    * Construct a ConcurrentHashMap with 1 << ShardBits shards, size
    * and max_size given.  Both size and max_size will be rounded up to
@@ -240,41 +267,29 @@ class ConcurrentHashMap {
     return true;
   }
 
-  ConstIterator find(const KeyType& k) const {
-    auto segment = pickSegment(k);
-    ConstIterator res(this, segment);
-    auto seg = segments_[segment].load(std::memory_order_acquire);
-    if (!seg || !seg->find(res.it_, k)) {
-      res.segment_ = NumShards;
-    }
-    return res;
+  ConstIterator find(const KeyType& k) const { return findImpl(k); }
+
+  template <typename K, EnableHeterogeneousFind<K, int> = 0>
+  ConstIterator find(const K& k) const {
+    return findImpl(k);
   }
 
-  ConstIterator cend() const noexcept {
-    return ConstIterator(NumShards);
-  }
+  ConstIterator cend() const noexcept { return ConstIterator(NumShards); }
 
-  ConstIterator cbegin() const noexcept {
-    return ConstIterator(this);
-  }
+  ConstIterator cbegin() const noexcept { return ConstIterator(this); }
 
-  ConstIterator end() const noexcept {
-    return cend();
-  }
+  ConstIterator end() const noexcept { return cend(); }
 
-  ConstIterator begin() const noexcept {
-    return cbegin();
-  }
+  ConstIterator begin() const noexcept { return cbegin(); }
 
   std::pair<ConstIterator, bool> insert(
       std::pair<key_type, mapped_type>&& foo) {
-    auto segment = pickSegment(foo.first);
-    std::pair<ConstIterator, bool> res(
-        std::piecewise_construct,
-        std::forward_as_tuple(this, segment),
-        std::forward_as_tuple(false));
-    res.second = ensureSegment(segment)->insert(res.first.it_, std::move(foo));
-    return res;
+    return insertImpl(std::move(foo));
+  }
+
+  template <typename Key, EnableHeterogeneousInsert<Key, int> = 0>
+  std::pair<ConstIterator, bool> insert(std::pair<Key, mapped_type>&& foo) {
+    return insertImpl(std::move(foo));
   }
 
   template <typename Key, typename Value>
@@ -356,8 +371,8 @@ class ConcurrentHashMap {
 
   // Assign to desired if and only if key k is equal to expected
   template <typename Key, typename Value>
-  folly::Optional<ConstIterator>
-  assign_if_equal(Key&& k, const ValueType& expected, Value&& desired) {
+  folly::Optional<ConstIterator> assign_if_equal(
+      Key&& k, const ValueType& expected, Value&& desired) {
     auto segment = pickSegment(k);
     ConstIterator res(this, segment);
     auto seg = segments_[segment].load(std::memory_order_acquire);
@@ -383,24 +398,26 @@ class ConcurrentHashMap {
     return item.first->second;
   }
 
-  const ValueType at(const KeyType& key) const {
-    auto item = find(key);
-    if (item == cend()) {
-      throw std::out_of_range("at(): value out of range");
-    }
-    return item->second;
+  template <typename Key, EnableHeterogeneousInsert<Key, int> = 0>
+  const ValueType operator[](const Key& key) {
+    auto item = insert(key, ValueType());
+    return item.first->second;
+  }
+
+  const ValueType at(const KeyType& key) const { return atImpl(key); }
+
+  template <typename K, EnableHeterogeneousFind<K, int> = 0>
+  const ValueType at(const K& key) const {
+    return atImpl(key);
   }
 
   // TODO update assign interface, operator[], at
 
-  size_type erase(const key_type& k) {
-    auto segment = pickSegment(k);
-    auto seg = segments_[segment].load(std::memory_order_acquire);
-    if (!seg) {
-      return 0;
-    } else {
-      return seg->erase(k);
-    }
+  size_type erase(const key_type& k) { return eraseImpl(k); }
+
+  template <typename K, EnableHeterogeneousErase<K, int> = 0>
+  size_type erase(const K& k) {
+    return eraseImpl(k);
   }
 
   // Calls the hash function, and therefore may throw.
@@ -414,12 +431,28 @@ class ConcurrentHashMap {
 
   // Erase if and only if key k is equal to expected
   size_type erase_if_equal(const key_type& k, const ValueType& expected) {
-    auto segment = pickSegment(k);
-    auto seg = segments_[segment].load(std::memory_order_acquire);
-    if (!seg) {
-      return 0;
-    }
-    return seg->erase_if_equal(k, expected);
+    return erase_key_if(
+        k, [&expected](const ValueType& v) { return v == expected; });
+  }
+
+  template <typename K, EnableHeterogeneousErase<K, int> = 0>
+  size_type erase_if_equal(const K& k, const ValueType& expected) {
+    return erase_key_if(
+        k, [&expected](const ValueType& v) { return v == expected; });
+  }
+
+  // Erase if predicate evaluates to true on the existing value
+  template <typename Predicate>
+  size_type erase_key_if(const key_type& k, Predicate&& predicate) {
+    return eraseKeyIfImpl(k, std::forward<Predicate>(predicate));
+  }
+
+  template <
+      typename K,
+      typename Predicate,
+      EnableHeterogeneousErase<K, int> = 0>
+  size_type erase_key_if(const K& k, Predicate&& predicate) {
+    return eraseKeyIfImpl(k, std::forward<Predicate>(predicate));
   }
 
   // NOT noexcept, initializes new shard segments vs.
@@ -434,6 +467,8 @@ class ConcurrentHashMap {
 
   void reserve(size_t count) {
     count = count >> ShardBits;
+    if (!count)
+      return;
     for (uint64_t i = 0; i < NumShards; i++) {
       auto seg = segments_[i].load(std::memory_order_acquire);
       if (seg) {
@@ -454,9 +489,7 @@ class ConcurrentHashMap {
     return res;
   }
 
-  float max_load_factor() const {
-    return load_factor_;
-  }
+  float max_load_factor() const { return load_factor_; }
 
   void max_load_factor(float factor) {
     for (uint64_t i = 0; i < NumShards; i++) {
@@ -471,13 +504,9 @@ class ConcurrentHashMap {
    public:
     friend class ConcurrentHashMap;
 
-    const value_type& operator*() const {
-      return *it_;
-    }
+    const value_type& operator*() const { return *it_; }
 
-    const value_type* operator->() const {
-      return &*it_;
-    }
+    const value_type* operator->() const { return &*it_; }
 
     ConstIterator& operator++() {
       ++it_;
@@ -489,9 +518,7 @@ class ConcurrentHashMap {
       return it_ == o.it_ && segment_ == o.segment_;
     }
 
-    bool operator!=(const ConstIterator& o) const {
-      return !(*this == o);
-    }
+    bool operator!=(const ConstIterator& o) const { return !(*this == o); }
 
     ConstIterator& operator=(const ConstIterator& o) = delete;
 
@@ -551,7 +578,60 @@ class ConcurrentHashMap {
   };
 
  private:
-  uint64_t pickSegment(const KeyType& k) const {
+  template <typename K>
+  ConstIterator findImpl(const K& k) const {
+    auto segment = pickSegment(k);
+    ConstIterator res(this, segment);
+    auto seg = segments_[segment].load(std::memory_order_acquire);
+    if (!seg || !seg->find(res.it_, k)) {
+      res.segment_ = NumShards;
+    }
+    return res;
+  }
+
+  template <typename K>
+  const ValueType atImpl(const K& k) const {
+    auto item = find(k);
+    if (item == cend()) {
+      throw_exception<std::out_of_range>("at(): key not in map");
+    }
+    return item->second;
+  }
+
+  template <typename Key>
+  std::pair<ConstIterator, bool> insertImpl(std::pair<Key, mapped_type>&& foo) {
+    auto segment = pickSegment(foo.first);
+    std::pair<ConstIterator, bool> res(
+        std::piecewise_construct,
+        std::forward_as_tuple(this, segment),
+        std::forward_as_tuple(false));
+    res.second = ensureSegment(segment)->insert(res.first.it_, std::move(foo));
+    return res;
+  }
+
+  template <typename K>
+  size_type eraseImpl(const K& k) {
+    auto segment = pickSegment(k);
+    auto seg = segments_[segment].load(std::memory_order_acquire);
+    if (!seg) {
+      return 0;
+    } else {
+      return seg->erase(k);
+    }
+  }
+
+  template <typename K, typename Predicate>
+  size_type eraseKeyIfImpl(const K& k, Predicate&& predicate) {
+    auto segment = pickSegment(k);
+    auto seg = segments_[segment].load(std::memory_order_acquire);
+    if (!seg) {
+      return 0;
+    }
+    return seg->erase_key_if(k, std::forward<Predicate>(predicate));
+  }
+
+  template <typename K>
+  uint64_t pickSegment(const K& k) const {
     auto h = HashFn()(k);
     // Use the lowest bits for our shard bits.
     //

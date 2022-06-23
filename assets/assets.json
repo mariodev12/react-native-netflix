@@ -1,0 +1,47 @@
+[
+  {
+    "logo": "./assets/logo.png",
+    "covers": [
+      {
+        "name": "stranger things",
+        "image": "https://butterflyflower.s3.eu-west-1.amazonaws.com/cover/stranger-things.jpg"
+      },
+      {
+        "name": "Abogado",
+        "image": "https://butterflyflower.s3.eu-west-1.amazonaws.com/cover/abogado.jpg"
+      },
+      {
+        "name": "aqui no hay quien viva",
+        "image": "https://butterflyflower.s3.eu-west-1.amazonaws.com/cover/aqui-no.jpg"
+      },
+      {
+        "name": "reina del flow",
+        "image": "https://butterflyflower.s3.eu-west-1.amazonaws.com/cover/reina-del-flow.jpg"
+      },
+      {
+        "name": "primera muerte",
+        "image": "https://butterflyflower.s3.eu-west-1.amazonaws.com/cover/primera-muerte.jpg"
+      },
+      {
+        "name": "cafe",
+        "image": "https://butterflyflower.s3.eu-west-1.amazonaws.com/cover/cafe.jpg"
+      },
+      {
+        "name": "entre vias",
+        "image": "https://butterflyflower.s3.eu-west-1.amazonaws.com/cover/entre-vias.jpg"
+      },
+      {
+        "name": "no sabes quien soy",
+        "image": "https://butterflyflower.s3.eu-west-1.amazonaws.com/cover/no-sabes-quien-soy.jpg"
+      },
+      {
+        "name": "peaky blinders",
+        "image": "https://butterflyflower.s3.eu-west-1.amazonaws.com/cover/peaky-blinders.jpg"
+      },
+      {
+        "name": "intimidad",
+        "image": "https://butterflyflower.s3.eu-west-1.amazonaws.com/cover/intimidad.jpg"
+      }
+    ]
+  }
+]

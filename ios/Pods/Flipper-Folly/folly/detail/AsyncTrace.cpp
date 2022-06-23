@@ -15,6 +15,7 @@
  */
 
 #include <folly/detail/AsyncTrace.h>
+
 #include <folly/Portability.h>
 
 namespace folly {
@@ -29,5 +30,7 @@ FOLLY_ATTR_WEAK void logGetImmutableIOExecutor(IOExecutor*) noexcept {}
 FOLLY_ATTR_WEAK void logSemiFutureVia(Executor*, Executor*) noexcept {}
 FOLLY_ATTR_WEAK void logFutureVia(Executor*, Executor*) noexcept {}
 FOLLY_ATTR_WEAK void logBlockingOperation(std::chrono::milliseconds) noexcept {}
+FOLLY_ATTR_WEAK void logSemiFutureDiscard(
+    DiscardHasDeferred /* hasDeferredExecutor */) noexcept {}
 } // namespace async_tracing
 } // namespace folly

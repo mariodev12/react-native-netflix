@@ -18,6 +18,7 @@
 
 #include <folly/executors/GlobalThreadPoolList.h>
 #include <folly/synchronization/AsymmetricMemoryBarrier.h>
+#include <folly/tracing/StaticTracepoint.h>
 
 namespace folly {
 
@@ -54,7 +55,9 @@ ThreadPoolExecutor::ThreadPoolExecutor(
       taskStatsCallbacks_(std::make_shared<TaskStatsCallbackRegistry>()),
       threadPoolHook_("folly::ThreadPoolExecutor"),
       minThreads_(minThreads),
-      threadTimeout_(FLAGS_threadtimeout_ms) {}
+      threadTimeout_(FLAGS_threadtimeout_ms) {
+  namePrefix_ = getNameHelper();
+}
 
 ThreadPoolExecutor::~ThreadPoolExecutor() {
   joinKeepAliveOnce();
@@ -62,9 +65,7 @@ ThreadPoolExecutor::~ThreadPoolExecutor() {
 }
 
 ThreadPoolExecutor::Task::Task(
-    Func&& func,
-    std::chrono::milliseconds expiration,
-    Func&& expireCallback)
+    Func&& func, std::chrono::milliseconds expiration, Func&& expireCallback)
     : func_(std::move(func)),
       expiration_(expiration),
       expireCallback_(std::move(expireCallback)),
@@ -73,39 +74,77 @@ ThreadPoolExecutor::Task::Task(
   enqueueTime_ = std::chrono::steady_clock::now();
 }
 
-void ThreadPoolExecutor::runTask(const ThreadPtr& thread, Task&& task) {
-  thread->idle = false;
-  auto startTime = std::chrono::steady_clock::now();
-  task.stats_.waitTime = startTime - task.enqueueTime_;
-  if (task.expiration_ > std::chrono::milliseconds(0) &&
-      task.stats_.waitTime >= task.expiration_) {
-    task.stats_.expired = true;
-    if (task.expireCallback_ != nullptr) {
-      task.expireCallback_();
-    }
-  } else {
-    folly::RequestContextScopeGuard rctx(task.context_);
-    try {
-      task.func_();
-    } catch (const std::exception& e) {
-      LOG(ERROR) << "ThreadPoolExecutor: func threw unhandled "
-                 << typeid(e).name() << " exception: " << e.what();
-    } catch (...) {
-      LOG(ERROR) << "ThreadPoolExecutor: func threw unhandled non-exception "
-                    "object";
-    }
-    task.stats_.runTime = std::chrono::steady_clock::now() - startTime;
+namespace {
+
+template <class F>
+void nothrow(const char* name, F&& f) {
+  try {
+    f();
+  } catch (const std::exception& e) {
+    LOG(ERROR) << "ThreadPoolExecutor: " << name << " threw unhandled "
+               << typeid(e).name() << " exception: " << e.what();
+  } catch (...) {
+    LOG(ERROR) << "ThreadPoolExecutor: " << name
+               << " threw unhandled non-exception object";
   }
-  thread->idle = true;
-  thread->lastActiveTime = std::chrono::steady_clock::now();
+}
+
+} // namespace
+
+void ThreadPoolExecutor::runTask(const ThreadPtr& thread, Task&& task) {
+  thread->idle.store(false, std::memory_order_relaxed);
+  auto startTime = std::chrono::steady_clock::now();
+  TaskStats stats;
+  stats.enqueueTime = task.enqueueTime_;
+  if (task.context_) {
+    stats.requestId = task.context_->getRootId();
+  }
+  stats.waitTime = startTime - task.enqueueTime_;
+
+  {
+    folly::RequestContextScopeGuard rctx(task.context_);
+    if (task.expiration_ > std::chrono::milliseconds(0) &&
+        stats.waitTime >= task.expiration_) {
+      task.func_ = nullptr;
+      stats.expired = true;
+      if (task.expireCallback_ != nullptr) {
+        invokeCatchingExns(
+            "ThreadPoolExecutor: expireCallback",
+            std::exchange(task.expireCallback_, {}));
+      }
+    } else {
+      invokeCatchingExns(
+          "ThreadPoolExecutor: func", std::exchange(task.func_, {}));
+      task.expireCallback_ = nullptr;
+    }
+  }
+  if (!stats.expired) {
+    stats.runTime = std::chrono::steady_clock::now() - startTime;
+  }
+
+  // Times in this USDT use granularity of std::chrono::steady_clock::duration,
+  // which is platform dependent. On Facebook servers, the granularity is
+  // nanoseconds. We explicitly do not perform any unit conversions to avoid
+  // unnecessary costs and leave it to consumers of this data to know what
+  // effective clock resolution is.
+  FOLLY_SDT(
+      folly,
+      thread_pool_executor_task_stats,
+      namePrefix_.c_str(),
+      stats.requestId,
+      stats.enqueueTime.time_since_epoch().count(),
+      stats.waitTime.count(),
+      stats.runTime.count());
+
+  thread->idle.store(true, std::memory_order_relaxed);
+  thread->lastActiveTime.store(
+      std::chrono::steady_clock::now(), std::memory_order_relaxed);
   thread->taskStatsCallbacks->callbackList.withRLock([&](auto& callbacks) {
     *thread->taskStatsCallbacks->inCallback = true;
-    SCOPE_EXIT {
-      *thread->taskStatsCallbacks->inCallback = false;
-    };
+    SCOPE_EXIT { *thread->taskStatsCallbacks->inCallback = false; };
     try {
       for (auto& callback : callbacks) {
-        callback(task.stats_);
+        callback(stats);
       }
     } catch (const std::exception& e) {
       LOG(ERROR) << "ThreadPoolExecutor: task stats callback threw "
@@ -272,8 +311,9 @@ ThreadPoolExecutor::PoolStats ThreadPoolExecutor::getPoolStats() const {
   size_t activeTasks = 0;
   size_t idleAlive = 0;
   for (const auto& thread : threadList_.get()) {
-    if (thread->idle) {
-      const std::chrono::nanoseconds idleTime = now - thread->lastActiveTime;
+    if (thread->idle.load(std::memory_order_relaxed)) {
+      const std::chrono::nanoseconds idleTime =
+          now - thread->lastActiveTime.load(std::memory_order_relaxed);
       stats.maxIdleTime = std::max(stats.maxIdleTime, idleTime);
       idleAlive++;
     } else {
@@ -295,12 +335,15 @@ size_t ThreadPoolExecutor::getPendingTaskCount() const {
   return getPendingTaskCountImpl();
 }
 
-std::string ThreadPoolExecutor::getName() const {
+const std::string& ThreadPoolExecutor::getName() const {
+  return namePrefix_;
+}
+
+std::string ThreadPoolExecutor::getNameHelper() const {
   auto ntf = dynamic_cast<NamedThreadFactory*>(threadFactory_.get());
   if (ntf == nullptr) {
     return folly::demangle(typeid(*this).name()).toStdString();
   }
-
   return ntf->getNamePrefix();
 }
 

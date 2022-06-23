@@ -15,6 +15,7 @@
  */
 
 #include <folly/memory/MallctlHelper.h>
+
 #include <folly/Format.h>
 #include <folly/String.h>
 
@@ -24,10 +25,11 @@ namespace folly {
 
 namespace detail {
 
-[[noreturn]] void handleMallctlError(const char* cmd, int err) {
+[[noreturn]] void handleMallctlError(const char* fn, const char* cmd, int err) {
   assert(err != 0);
+  cmd = cmd ? cmd : "<none>";
   throw std::runtime_error(
-      sformat("mallctl {}: {} ({})", cmd, errnoStr(err), err));
+      sformat("mallctl[{}] {}: {} ({})", fn, cmd, errnoStr(err), err));
 }
 
 } // namespace detail

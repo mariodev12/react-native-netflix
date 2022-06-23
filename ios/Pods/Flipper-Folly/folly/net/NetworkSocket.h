@@ -31,6 +31,9 @@ struct NetworkSocket {
 #ifdef _WIN32
   using native_handle_type = SOCKET;
   static constexpr native_handle_type invalid_handle_value = INVALID_SOCKET;
+#elif defined(__XROS__)
+  using native_handle_type = void*;
+  static constexpr native_handle_type invalid_handle_value = nullptr;
 #else
   using native_handle_type = int;
   static constexpr native_handle_type invalid_handle_value = -1;
@@ -53,22 +56,19 @@ struct NetworkSocket {
   }
 
   friend constexpr bool operator==(
-      const NetworkSocket& a,
-      const NetworkSocket& b) noexcept {
+      const NetworkSocket& a, const NetworkSocket& b) noexcept {
     return a.data == b.data;
   }
 
   friend constexpr bool operator!=(
-      const NetworkSocket& a,
-      const NetworkSocket& b) noexcept {
+      const NetworkSocket& a, const NetworkSocket& b) noexcept {
     return !(a == b);
   }
 };
 
 template <class CharT, class Traits>
 inline std::basic_ostream<CharT, Traits>& operator<<(
-    std::basic_ostream<CharT, Traits>& os,
-    const NetworkSocket& addr) {
+    std::basic_ostream<CharT, Traits>& os, const NetworkSocket& addr) {
   os << "folly::NetworkSocket(" << addr.data << ")";
   return os;
 }

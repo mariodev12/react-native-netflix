@@ -62,9 +62,7 @@ class SocketAddress {
   }
 
   SocketAddress(
-      const std::string& host,
-      uint16_t port,
-      bool allowNameLookup = false) {
+      const std::string& host, uint16_t port, bool allowNameLookup = false) {
     // Initialize the address family first,
     // since setFromHostPort() and setFromIpPort() will check it.
 
@@ -130,9 +128,7 @@ class SocketAddress {
     }
   }
 
-  bool isInitialized() const {
-    return (getFamily() != AF_UNSPEC);
-  }
+  bool isInitialized() const { return (getFamily() != AF_UNSPEC); }
 
   /**
    * Return whether this address is within private network.
@@ -295,8 +291,7 @@ class SocketAddress {
    * Returns `defaultResult` for unsupported socket families.
    */
   static const char* getFamilyNameFrom(
-      const struct sockaddr* address,
-      const char* defaultResult = nullptr);
+      const struct sockaddr* address, const char* defaultResult = nullptr);
 
   /**
    * Initialize this SocketAddress from a local unix path.
@@ -409,9 +404,7 @@ class SocketAddress {
     return external_ ? sa_family_t(AF_UNIX) : storage_.addr.family();
   }
 
-  bool empty() const {
-    return getFamily() == AF_UNSPEC;
-  }
+  bool empty() const { return getFamily() == AF_UNSPEC; }
 
   /**
    * Get a string representation of the IPv4 or IPv6 address.
@@ -574,9 +567,7 @@ class SocketAddress {
       len = other.len;
       memcpy(addr, other.addr, size_t(len));
     }
-    void free() {
-      delete addr;
-    }
+    void free() { delete addr; }
   };
 
   struct addrinfo* getAddrInfo(const char* host, uint16_t port, int flags);

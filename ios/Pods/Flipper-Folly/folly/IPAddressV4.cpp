@@ -19,9 +19,12 @@
 #include <ostream>
 #include <string>
 
-#include <folly/Format.h>
+#include <fmt/core.h>
+
+#include <folly/Conv.h>
 #include <folly/IPAddress.h>
 #include <folly/IPAddressV6.h>
+#include <folly/String.h>
 #include <folly/detail/IPAddressSource.h>
 
 using std::ostream;
@@ -67,7 +70,7 @@ uint32_t IPAddressV4::toLong(StringPiece ip) {
   in_addr addr;
   if (inet_pton(AF_INET, str.c_str(), &addr) != 1) {
     throw IPAddressFormatException(
-        sformat("Can't convert invalid IP '{}' to long", ip));
+        fmt::format("Can't convert invalid IP '{}' to long", ip));
   }
   return addr.s_addr;
 }
@@ -140,12 +143,12 @@ IPAddressV4 IPAddressV4::fromInverseArpaName(const std::string& arpaname) {
   // input must be something like 1.0.168.192.in-addr.arpa
   if (!piece.removeSuffix(".in-addr.arpa")) {
     throw IPAddressFormatException(
-        sformat("input does not end with '.in-addr.arpa': '{}'", arpaname));
+        fmt::format("input does not end with '.in-addr.arpa': '{}'", arpaname));
   }
   std::vector<StringPiece> pieces;
   split(".", piece, pieces);
   if (pieces.size() != 4) {
-    throw IPAddressFormatException(sformat("Invalid input. Got {}", piece));
+    throw IPAddressFormatException(fmt::format("Invalid input. Got {}", piece));
   }
   // reverse 1.0.168.192 -> 192.168.0.1
   return IPAddressV4(join(".", pieces.rbegin(), pieces.rend()));
@@ -169,7 +172,7 @@ IPAddressV6 IPAddressV4::getIPv6For6To4() const {
 
 // public
 string IPAddressV4::toJson() const {
-  return sformat("{{family:'AF_INET', addr:'{}', hash:{}}}", str(), hash());
+  return fmt::format("{{family:'AF_INET', addr:'{}', hash:{}}}", str(), hash());
 }
 
 // public
@@ -178,15 +181,14 @@ bool IPAddressV4::inSubnet(StringPiece cidrNetwork) const {
   auto addr = subnetInfo.first;
   if (!addr.isV4()) {
     throw IPAddressFormatException(
-        sformat("Address '{}' is not a V4 address", addr.toJson()));
+        fmt::format("Address '{}' is not a V4 address", addr.toJson()));
   }
   return inSubnetWithMask(addr.asV4(), fetchMask(subnetInfo.second));
 }
 
 // public
 bool IPAddressV4::inSubnetWithMask(
-    const IPAddressV4& subnet,
-    const ByteArray4 cidrMask) const {
+    const IPAddressV4& subnet, const ByteArray4 cidrMask) const {
   const auto mask = detail::Bytes::mask(toByteArray(), cidrMask);
   const auto subMask = detail::Bytes::mask(subnet.toByteArray(), cidrMask);
   return (mask == subMask);
@@ -240,7 +242,7 @@ IPAddressV4 IPAddressV4::mask(size_t numBits) const {
   static const auto bits = bitCount();
   if (numBits > bits) {
     throw IPAddressFormatException(
-        sformat("numBits({}) > bitsCount({})", numBits, bits));
+        fmt::format("numBits({}) > bitsCount({})", numBits, bits));
   }
 
   ByteArray4 ba = detail::Bytes::mask(fetchMask(numBits), addr_.bytes_);
@@ -259,7 +261,7 @@ void IPAddressV4::toFullyQualifiedAppend(std::string& out) const {
 
 // public
 string IPAddressV4::toInverseArpaName() const {
-  return sformat(
+  return fmt::format(
       "{}.{}.{}.{}.in-addr.arpa",
       addr_.bytes_[3],
       addr_.bytes_[2],
@@ -271,7 +273,7 @@ string IPAddressV4::toInverseArpaName() const {
 uint8_t IPAddressV4::getNthMSByte(size_t byteIndex) const {
   const auto highestIndex = byteCount() - 1;
   if (byteIndex > highestIndex) {
-    throw std::invalid_argument(sformat(
+    throw std::invalid_argument(fmt::format(
         "Byte index must be <= {} for addresses of type: {}",
         highestIndex,
         detail::familyNameStr(AF_INET)));
@@ -291,8 +293,7 @@ ByteArray4 IPAddressV4::fetchMask(size_t numBits) {
 }
 // public static
 CIDRNetworkV4 IPAddressV4::longestCommonPrefix(
-    const CIDRNetworkV4& one,
-    const CIDRNetworkV4& two) {
+    const CIDRNetworkV4& one, const CIDRNetworkV4& two) {
   auto prefix = detail::Bytes::longestCommonPrefix(
       one.first.addr_.bytes_, one.second, two.first.addr_.bytes_, two.second);
   return {IPAddressV4(prefix.first), prefix.second};

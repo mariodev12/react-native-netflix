@@ -119,8 +119,8 @@
 //        std::move(socket), eventBase_, loadSize_, recvBufferLength_);
 //  }
 //
-//  void acceptError(const std::exception& ex) noexcept override {
-//    LOG(FATAL) << "acceptError" << ex.what() << std::endl;
+//  void acceptError(folly::exception_wrapper ex) noexcept override {
+//    LOG(FATAL) << "acceptError" << ex << std::endl;
 //    eventBase_.terminateLoopSoon();
 //  }
 //

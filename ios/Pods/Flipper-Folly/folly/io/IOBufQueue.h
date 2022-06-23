@@ -16,13 +16,19 @@
 
 #pragma once
 
-#include <folly/ScopeGuard.h>
-#include <folly/io/IOBuf.h>
-
 #include <stdexcept>
 #include <string>
 
+#include <folly/ScopeGuard.h>
+#include <folly/io/IOBuf.h>
+
 namespace folly {
+
+namespace io {
+enum class CursorAccess;
+template <CursorAccess>
+class RWCursor;
+} // namespace io
 
 /**
  * An IOBufQueue encapsulates a chain of IOBufs and provides
@@ -34,6 +40,9 @@ namespace folly {
  */
 class IOBufQueue {
  private:
+  template <io::CursorAccess>
+  friend class io::RWCursor;
+
   /**
    * This guard should be taken by any method that intends to do any changes
    * to in data_ (e.g. appending to it).
@@ -170,9 +179,7 @@ class IOBufQueue {
     /**
      * Get a pointer to the underlying IOBufQueue object.
      */
-    IOBufQueue* queue() {
-      return queue_;
-    }
+    IOBufQueue* queue() { return queue_; }
 
     /**
      * Return a pointer to the start of cached writable tail.
@@ -215,24 +222,18 @@ class IOBufQueue {
      * The caller must guarantee that the cache is set (e.g. the caller just
      * called fillCache or checked that it's not empty).
      */
-    void appendUnsafe(size_t n) {
-      data_.cachedRange.first += n;
-    }
+    void appendUnsafe(size_t n) { data_.cachedRange.first += n; }
 
     /**
      * Fill the cache of writable tail from the underlying IOBufQueue.
      */
-    void fillCache() {
-      queue_->fillWritableRangeCache(data_);
-    }
+    void fillCache() { queue_->fillWritableRangeCache(data_); }
 
    private:
     WritableRangeCacheData data_;
     IOBufQueue* queue_;
 
-    FOLLY_NOINLINE void appendSlow(size_t n) {
-      queue_->postallocate(n);
-    }
+    FOLLY_NOINLINE void appendSlow(size_t n) { queue_->postallocate(n); }
 
     void dcheckIntegrity() {
       // Tail start should always be less than tail end.
@@ -313,9 +314,7 @@ class IOBufQueue {
    * Copy a string to the end of this queue.
    * The caller retains ownership of the source data.
    */
-  void append(StringPiece sp) {
-    append(sp.data(), sp.size());
-  }
+  void append(StringPiece sp) { append(sp.data(), sp.size()); }
 
   /**
    * Append a chain of IOBuf objects that point to consecutive regions
@@ -349,10 +348,10 @@ class IOBufQueue {
    * @return The starting address of the block and the length in bytes.
    *
    * @note The point of the preallocate()/postallocate() mechanism is
-   *       to support I/O APIs such as Thrift's TAsyncSocket::ReadCallback
-   *       that request a buffer from the application and then, in a later
-   *       callback, tell the application how much of the buffer they've
-   *       filled with data.
+   *       to support I/O APIs such as AsyncSocket::ReadCallback that
+   *       request a buffer from the application and then, in a later
+   *       callback, tell the application how much of the buffer they
+   *       have filled with data.
    */
   std::pair<void*, std::size_t> preallocate(
       std::size_t min,
@@ -418,9 +417,7 @@ class IOBufQueue {
    * @throws std::underflow_error if n exceeds the number of bytes
    *         in the queue.
    */
-  std::unique_ptr<folly::IOBuf> split(size_t n) {
-    return split(n, true);
-  }
+  std::unique_ptr<folly::IOBuf> split(size_t n) { return split(n, true); }
 
   /**
    * Similar to split, but will return the entire queue instead of throwing
@@ -463,6 +460,8 @@ class IOBufQueue {
     chainLength_ = 0;
     return res;
   }
+
+  folly::IOBuf moveAsValue() { return std::move(*move()); }
 
   /**
    * Access the front IOBuf.
@@ -507,9 +506,7 @@ class IOBufQueue {
         (head_->empty() && cachePtr_->cachedRange.first == tailStart_);
   }
 
-  const Options& options() const {
-    return options_;
-  }
+  const Options& options() const { return options_; }
 
   /**
    * Clear the queue.  Note that this does not release the buffers, it
@@ -626,9 +623,7 @@ class IOBufQueue {
   }
 
   // For WritableRangeCache move assignment/construction.
-  void updateCacheRef(WritableRangeCacheData& newRef) {
-    cachePtr_ = &newRef;
-  }
+  void updateCacheRef(WritableRangeCacheData& newRef) { cachePtr_ = &newRef; }
 
   /**
    * Update cached writable tail range. Called by updateGuard()
@@ -648,9 +643,7 @@ class IOBufQueue {
   }
 
   std::pair<void*, std::size_t> preallocateSlow(
-      std::size_t min,
-      std::size_t newAllocationSize,
-      std::size_t max);
+      std::size_t min, std::size_t newAllocationSize, std::size_t max);
 };
 
 } // namespace folly

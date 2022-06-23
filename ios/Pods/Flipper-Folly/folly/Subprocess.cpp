@@ -33,14 +33,14 @@
 #include <boost/container/flat_set.hpp>
 #include <boost/range/adaptors.hpp>
 
-#include <glog/logging.h>
-
 #include <folly/Conv.h>
 #include <folly/Exception.h>
 #include <folly/ScopeGuard.h>
 #include <folly/String.h>
+#include <folly/detail/AtFork.h>
 #include <folly/io/Cursor.h>
 #include <folly/lang/Assume.h>
+#include <folly/logging/xlog.h>
 #include <folly/portability/Sockets.h>
 #include <folly/portability/Stdlib.h>
 #include <folly/portability/SysSyscall.h>
@@ -132,18 +132,14 @@ CalledProcessError::CalledProcessError(ProcessReturnCode rc)
     : SubprocessError(rc.str()), returnCode_(rc) {}
 
 static inline std::string toSubprocessSpawnErrorMessage(
-    char const* executable,
-    int errCode,
-    int errnoValue) {
+    char const* executable, int errCode, int errnoValue) {
   auto prefix = errCode == kExecFailure ? "failed to execute "
                                         : "error preparing to execute ";
   return to<std::string>(prefix, executable, ": ", errnoStr(errnoValue));
 }
 
 SubprocessSpawnError::SubprocessSpawnError(
-    const char* executable,
-    int errCode,
-    int errnoValue)
+    const char* executable, int errCode, int errnoValue)
     : SubprocessError(
           toSubprocessSpawnErrorMessage(executable, errCode, errnoValue)),
       errnoValue_(errnoValue) {}
@@ -192,7 +188,8 @@ Subprocess::Subprocess(
     const std::vector<std::string>& argv,
     const Options& options,
     const char* executable,
-    const std::vector<std::string>* env) {
+    const std::vector<std::string>* env)
+    : destroyOkWhileRunning_(options.allowDestructionWhileProcessRunning_) {
   if (argv.empty()) {
     throw std::invalid_argument("argv must not be empty");
   }
@@ -205,7 +202,8 @@ Subprocess::Subprocess(
 Subprocess::Subprocess(
     const std::string& cmd,
     const Options& options,
-    const std::vector<std::string>* env) {
+    const std::vector<std::string>* env)
+    : destroyOkWhileRunning_(options.allowDestructionWhileProcessRunning_) {
   if (options.usePath_) {
     throw std::invalid_argument("usePath() not allowed when running in shell");
   }
@@ -217,13 +215,18 @@ Subprocess::Subprocess(
 Subprocess Subprocess::fromExistingProcess(pid_t pid) {
   Subprocess sp;
   sp.pid_ = pid;
+  sp.destroyOkWhileRunning_ = false;
   sp.returnCode_ = ProcessReturnCode::makeRunning();
   return sp;
 }
 
 Subprocess::~Subprocess() {
-  CHECK_NE(returnCode_.state(), ProcessReturnCode::RUNNING)
-      << "Subprocess destroyed without reaping child";
+  if (!destroyOkWhileRunning_) {
+    CHECK_NE(returnCode_.state(), ProcessReturnCode::RUNNING)
+        << "Subprocess destroyed without reaping child";
+  } else if (returnCode_.state() == ProcessReturnCode::RUNNING) {
+    XLOG(DBG) << "Subprocess destroyed without reaping child process";
+  }
 }
 
 namespace {
@@ -444,9 +447,15 @@ void Subprocess::spawnInternal(
     if (options.detach_) {
       // If we are detaching we must use fork() instead of vfork() for the first
       // fork, since we aren't going to simply call exec() in the child.
-      pid = fork();
+      pid = detail::AtFork::forkInstrumented(fork);
     } else {
-      pid = vfork();
+      if (kIsSanitizeThread) {
+        // TSAN treats vfork as fork, so use the instrumented version
+        // instead
+        pid = detail::AtFork::forkInstrumented(fork);
+      } else {
+        pid = vfork();
+      }
     }
 #ifdef __linux__
   }
@@ -461,7 +470,13 @@ void Subprocess::spawnInternal(
         pid = syscall(SYS_clone, *options.cloneFlags_, 0, nullptr, nullptr);
       } else {
 #endif
-        pid = vfork();
+        if (kIsSanitizeThread) {
+          // TSAN treats vfork as fork, so use the instrumented version
+          // instead
+          pid = detail::AtFork::forkInstrumented(fork);
+        } else {
+          pid = vfork();
+        }
 #ifdef __linux__
       }
 #endif
@@ -614,8 +629,11 @@ void Subprocess::readChildErrorPipe(int pfd, const char* executable) {
     // normally, as if the child executed successfully.  If something bad
     // happened the caller should at least get a non-normal exit status from
     // the child.
-    LOG(ERROR) << "unexpected error trying to read from child error pipe "
-               << "rc=" << rc << ", errno=" << errno;
+    XLOGF(
+        ERR,
+        "unexpected error trying to read from child error pipe rc={}, errno={}",
+        rc,
+        errno);
     return;
   }
 
@@ -722,8 +740,7 @@ void Subprocess::sendSignal(int signal) {
 }
 
 ProcessReturnCode Subprocess::waitOrTerminateOrKill(
-    TimeoutDuration waitTimeout,
-    TimeoutDuration sigtermTimeout) {
+    TimeoutDuration waitTimeout, TimeoutDuration sigtermTimeout) {
   returnCode_.enforce(ProcessReturnCode::RUNNING);
   DCHECK_GT(pid_, 0) << "The subprocess has been waited already";
 
@@ -748,7 +765,7 @@ ProcessReturnCode Subprocess::terminateOrKill(TimeoutDuration sigtermTimeout) {
   // 3. If we are at this point, we have waited enough time after
   // sending SIGTERM, we have to use nuclear option SIGKILL to kill
   // the subprocess.
-  LOG(INFO) << "Send SIGKILL to " << pid_;
+  XLOGF(INFO, "Send SIGKILL to {}", pid_);
   kill();
   // 4. SIGKILL should kill the process otherwise there must be
   // something seriously wrong, just use blocking wait to wait for the
@@ -884,8 +901,7 @@ std::pair<IOBufQueue, IOBufQueue> Subprocess::communicateIOBuf(
 }
 
 void Subprocess::communicate(
-    FdCallback readCallback,
-    FdCallback writeCallback) {
+    FdCallback readCallback, FdCallback writeCallback) {
   // This serves to prevent wait() followed by communicate(), but if you
   // legitimately need that, send a patch to delete this line.
   returnCode_.enforce(ProcessReturnCode::RUNNING);

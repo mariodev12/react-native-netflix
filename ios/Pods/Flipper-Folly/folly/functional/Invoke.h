@@ -25,9 +25,12 @@
 #include <boost/preprocessor/logical/not.hpp>
 #include <boost/preprocessor/tuple/to_list.hpp>
 
+#include <folly/CppAttributes.h>
 #include <folly/Portability.h>
 #include <folly/Preprocessor.h>
 #include <folly/Traits.h>
+#include <folly/Utility.h>
+#include <folly/lang/CustomizationPoint.h>
 
 /**
  *  include or backport:
@@ -44,159 +47,158 @@
  *  * std::is_nothrow_invocable_r_v
  */
 
-#if __cpp_lib_invoke >= 201411 || _MSC_VER
-
 namespace folly {
 
-/* using override */ using std::invoke;
-}
-
-#else
-
-namespace folly {
-
+//  invoke_fn
+//  invoke
+//
 //  mimic: std::invoke, C++17
-template <typename F, typename... Args>
-FOLLY_ERASE constexpr auto invoke(F&& f, Args&&... args) noexcept(
-    noexcept(static_cast<F&&>(f)(static_cast<Args&&>(args)...)))
-    -> decltype(static_cast<F&&>(f)(static_cast<Args&&>(args)...)) {
-  return static_cast<F&&>(f)(static_cast<Args&&>(args)...);
-}
-template <typename M, typename C, typename... Args>
-FOLLY_ERASE constexpr auto invoke(M(C::*d), Args&&... args)
-    -> decltype(std::mem_fn(d)(static_cast<Args&&>(args)...)) {
-  return std::mem_fn(d)(static_cast<Args&&>(args)...);
-}
+struct invoke_fn {
+  template <typename F, typename... A>
+  FOLLY_ERASE constexpr auto operator()(F&& f, A&&... a) const
+      noexcept(noexcept(static_cast<F&&>(f)(static_cast<A&&>(a)...)))
+          -> decltype(static_cast<F&&>(f)(static_cast<A&&>(a)...)) {
+    return static_cast<F&&>(f)(static_cast<A&&>(a)...);
+  }
+  template <typename M, typename C, typename... A>
+  FOLLY_ERASE constexpr auto operator()(M C::*f, A&&... a) const
+      noexcept(noexcept(std::mem_fn(f)(static_cast<A&&>(a)...)))
+          -> decltype(std::mem_fn(f)(static_cast<A&&>(a)...)) {
+    return std::mem_fn(f)(static_cast<A&&>(a)...);
+  }
+};
+
+FOLLY_INLINE_VARIABLE constexpr invoke_fn invoke;
 
 } // namespace folly
-
-#endif
-
-// Only available in >= MSVC 2017 15.3 in C++17
-#if __cpp_lib_is_invocable >= 201703 || \
-    (_MSC_VER >= 1911 && _MSVC_LANG > 201402)
-
-namespace folly {
-
-/* using override */ using std::invoke_result;
-/* using override */ using std::invoke_result_t;
-/* using override */ using std::is_invocable;
-/* using override */ using std::is_invocable_r;
-/* using override */ using std::is_invocable_r_v;
-/* using override */ using std::is_invocable_v;
-/* using override */ using std::is_nothrow_invocable;
-/* using override */ using std::is_nothrow_invocable_r;
-/* using override */ using std::is_nothrow_invocable_r_v;
-/* using override */ using std::is_nothrow_invocable_v;
-
-} // namespace folly
-
-#else
 
 namespace folly {
 
 namespace invoke_detail {
 
-template <typename F, typename... Args>
-using invoke_result_ =
-    decltype(invoke(std::declval<F>(), std::declval<Args>()...));
+template <typename F>
+struct traits {
+  template <typename... A>
+  using result = decltype( //
+      FOLLY_DECLVAL(F &&)(FOLLY_DECLVAL(A &&)...));
+  template <typename... A>
+  static constexpr bool nothrow = noexcept( //
+      FOLLY_DECLVAL(F&&)(FOLLY_DECLVAL(A&&)...));
+};
+template <typename P>
+struct traits_member_ptr {
+  template <typename... A>
+  using result = decltype( //
+      std::mem_fn(FOLLY_DECLVAL(P))(FOLLY_DECLVAL(A &&)...));
+  template <typename... A>
+  static constexpr bool nothrow = noexcept( //
+      std::mem_fn(FOLLY_DECLVAL(P))(FOLLY_DECLVAL(A&&)...));
+};
+template <typename M, typename C>
+struct traits<M C::*> : traits_member_ptr<M C::*> {};
+template <typename M, typename C>
+struct traits<M C::*const> : traits_member_ptr<M C::*> {};
+template <typename M, typename C>
+struct traits<M C::*&> : traits_member_ptr<M C::*> {};
+template <typename M, typename C>
+struct traits<M C::*const&> : traits_member_ptr<M C::*> {};
+template <typename M, typename C>
+struct traits<M C::*&&> : traits_member_ptr<M C::*> {};
+template <typename M, typename C>
+struct traits<M C::*const&&> : traits_member_ptr<M C::*> {};
 
-template <typename F, typename... Args>
-struct invoke_nothrow_
-    : bool_constant<noexcept(
-          invoke(std::declval<F>(), std::declval<Args>()...))> {};
+//  adapted from: http://en.cppreference.com/w/cpp/types/result_of, CC-BY-SA
 
-//  from: http://en.cppreference.com/w/cpp/types/result_of, CC-BY-SA
+template <typename F, typename... A>
+using invoke_result_t = typename traits<F>::template result<A...>;
 
-template <typename Void, typename F, typename... Args>
+template <typename Void, typename F, typename... A>
 struct invoke_result {};
 
-template <typename F, typename... Args>
-struct invoke_result<void_t<invoke_result_<F, Args...>>, F, Args...> {
-  using type = invoke_result_<F, Args...>;
+template <typename F, typename... A>
+struct invoke_result<void_t<invoke_result_t<F, A...>>, F, A...> {
+  using type = invoke_result_t<F, A...>;
 };
 
-template <typename Void, typename F, typename... Args>
-struct is_invocable : std::false_type {};
+template <typename Void, typename F, typename... A>
+FOLLY_INLINE_VARIABLE constexpr bool is_invocable_v = false;
 
-template <typename F, typename... Args>
-struct is_invocable<void_t<invoke_result_<F, Args...>>, F, Args...>
-    : std::true_type {};
+template <typename F, typename... A>
+FOLLY_INLINE_VARIABLE constexpr bool
+    is_invocable_v<void_t<invoke_result_t<F, A...>>, F, A...> = true;
 
-template <typename Void, typename R, typename F, typename... Args>
-struct is_invocable_r : std::false_type {};
+template <typename Void, typename R, typename F, typename... A>
+FOLLY_INLINE_VARIABLE constexpr bool is_invocable_r_v = false;
 
-template <typename R, typename F, typename... Args>
-struct is_invocable_r<void_t<invoke_result_<F, Args...>>, R, F, Args...>
-    : std::is_convertible<invoke_result_<F, Args...>, R> {};
+template <typename R, typename F, typename... A>
+FOLLY_INLINE_VARIABLE constexpr bool
+    is_invocable_r_v<void_t<invoke_result_t<F, A...>>, R, F, A...> =
+        std::is_convertible<invoke_result_t<F, A...>, R>::value;
 
-template <typename Void, typename F, typename... Args>
-struct is_nothrow_invocable : std::false_type {};
+template <typename Void, typename F, typename... A>
+FOLLY_INLINE_VARIABLE constexpr bool is_nothrow_invocable_v = false;
 
-template <typename F, typename... Args>
-struct is_nothrow_invocable<void_t<invoke_result_<F, Args...>>, F, Args...>
-    : invoke_nothrow_<F, Args...> {};
+template <typename F, typename... A>
+FOLLY_INLINE_VARIABLE constexpr bool
+    is_nothrow_invocable_v<void_t<invoke_result_t<F, A...>>, F, A...> =
+        traits<F>::template nothrow<A...>;
 
-template <typename Void, typename R, typename F, typename... Args>
-struct is_nothrow_invocable_r : std::false_type {};
+template <typename Void, typename R, typename F, typename... A>
+FOLLY_INLINE_VARIABLE constexpr bool is_nothrow_invocable_r_v = false;
 
-template <typename R, typename F, typename... Args>
-struct is_nothrow_invocable_r<void_t<invoke_result_<F, Args...>>, R, F, Args...>
-    : StrictConjunction<
-          std::is_convertible<invoke_result_<F, Args...>, R>,
-          invoke_nothrow_<F, Args...>> {};
+template <typename R, typename F, typename... A>
+FOLLY_INLINE_VARIABLE constexpr bool
+    is_nothrow_invocable_r_v<void_t<invoke_result_t<F, A...>>, R, F, A...> =
+        std::is_convertible<invoke_result_t<F, A...>, R>::value&&
+            traits<F>::template nothrow<A...>;
 
 } // namespace invoke_detail
 
 //  mimic: std::invoke_result, C++17
-template <typename F, typename... Args>
-struct invoke_result : invoke_detail::invoke_result<void, F, Args...> {};
+template <typename F, typename... A>
+using invoke_result = invoke_detail::invoke_result<void, F, A...>;
 
 //  mimic: std::invoke_result_t, C++17
-template <typename F, typename... Args>
-using invoke_result_t = typename invoke_result<F, Args...>::type;
-
-//  mimic: std::is_invocable, C++17
-template <typename F, typename... Args>
-struct is_invocable : invoke_detail::is_invocable<void, F, Args...> {};
+using invoke_detail::invoke_result_t;
 
 //  mimic: std::is_invocable_v, C++17
-template <typename F, typename... Args>
+template <typename F, typename... A>
 FOLLY_INLINE_VARIABLE constexpr bool is_invocable_v =
-    is_invocable<F, Args...>::value;
+    invoke_detail::is_invocable_v<void, F, A...>;
 
-//  mimic: std::is_invocable_r, C++17
-template <typename R, typename F, typename... Args>
-struct is_invocable_r : invoke_detail::is_invocable_r<void, R, F, Args...> {};
+//  mimic: std::is_invocable, C++17
+template <typename F, typename... A>
+struct is_invocable : bool_constant<is_invocable_v<F, A...>> {};
 
 //  mimic: std::is_invocable_r_v, C++17
-template <typename R, typename F, typename... Args>
+template <typename R, typename F, typename... A>
 FOLLY_INLINE_VARIABLE constexpr bool is_invocable_r_v =
-    is_invocable_r<R, F, Args...>::value;
+    invoke_detail::is_invocable_r_v<void, R, F, A...>;
 
-//  mimic: std::is_nothrow_invocable, C++17
-template <typename F, typename... Args>
-struct is_nothrow_invocable
-    : invoke_detail::is_nothrow_invocable<void, F, Args...> {};
+//  mimic: std::is_invocable_r, C++17
+template <typename R, typename F, typename... A>
+struct is_invocable_r : bool_constant<is_invocable_r_v<R, F, A...>> {};
 
 //  mimic: std::is_nothrow_invocable_v, C++17
-template <typename F, typename... Args>
+template <typename F, typename... A>
 FOLLY_INLINE_VARIABLE constexpr bool is_nothrow_invocable_v =
-    is_nothrow_invocable<F, Args...>::value;
+    invoke_detail::is_nothrow_invocable_v<void, F, A...>;
 
-//  mimic: std::is_nothrow_invocable_r, C++17
-template <typename R, typename F, typename... Args>
-struct is_nothrow_invocable_r
-    : invoke_detail::is_nothrow_invocable_r<void, R, F, Args...> {};
+//  mimic: std::is_nothrow_invocable, C++17
+template <typename F, typename... A>
+struct is_nothrow_invocable : bool_constant<is_nothrow_invocable_v<F, A...>> {};
 
 //  mimic: std::is_nothrow_invocable_r_v, C++17
 template <typename R, typename F, typename... Args>
 FOLLY_INLINE_VARIABLE constexpr bool is_nothrow_invocable_r_v =
-    is_nothrow_invocable_r<R, F, Args...>::value;
+    invoke_detail::is_nothrow_invocable_r_v<void, R, F, Args...>;
+
+//  mimic: std::is_nothrow_invocable_r, C++17
+template <typename R, typename F, typename... A>
+struct is_nothrow_invocable_r
+    : bool_constant<is_nothrow_invocable_r_v<R, F, A...>> {};
 
 } // namespace folly
-
-#endif
 
 namespace folly {
 
@@ -204,17 +206,17 @@ namespace detail {
 
 struct invoke_private_overload;
 
-template <bool, typename Invoke>
+template <bool, typename I>
 struct invoke_traits_base_ {};
-template <typename Invoke>
-struct invoke_traits_base_<false, Invoke> {};
-template <typename Invoke>
-struct invoke_traits_base_<true, Invoke> {
-  FOLLY_INLINE_VARIABLE static constexpr Invoke invoke{};
+template <typename I>
+struct invoke_traits_base_<false, I> {};
+template <typename I>
+struct invoke_traits_base_<true, I> {
+  FOLLY_INLINE_VARIABLE static constexpr I invoke{};
 };
-template <typename Invoke>
+template <typename I>
 using invoke_traits_base =
-    invoke_traits_base_<is_constexpr_default_constructible_v<Invoke>, Invoke>;
+    invoke_traits_base_<is_constexpr_default_constructible_v<I>, I>;
 
 } // namespace detail
 
@@ -246,40 +248,44 @@ using invoke_traits_base =
 //  if the latter is constexpr default-constructible:
 //
 //  * invoke
-template <typename Invoke>
-struct invoke_traits : detail::invoke_traits_base<Invoke> {
+template <typename I>
+struct invoke_traits : detail::invoke_traits_base<I> {
  public:
-  using invoke_type = Invoke;
+  using invoke_type = I;
 
   //  If invoke_type is constexpr default-constructible:
   //
   //    inline static constexpr invoke_type invoke{};
 
-  template <typename... Args>
-  struct invoke_result : folly::invoke_result<Invoke, Args...> {};
-  template <typename... Args>
-  using invoke_result_t = folly::invoke_result_t<Invoke, Args...>;
-  template <typename... Args>
-  struct is_invocable : folly::is_invocable<Invoke, Args...> {};
-  template <typename... Args>
+  template <typename... A>
+  using invoke_result = invoke_detail::invoke_result<void, I, A...>;
+  template <typename... A>
+  using invoke_result_t = invoke_detail::invoke_result_t<I, A...>;
+  template <typename... A>
   FOLLY_INLINE_VARIABLE static constexpr bool is_invocable_v =
-      is_invocable<Args...>::value;
-  template <typename R, typename... Args>
-  struct is_invocable_r : folly::is_invocable_r<R, Invoke, Args...> {};
-  template <typename R, typename... Args>
+      invoke_detail::is_invocable_v<void, I, A...>;
+  template <typename... A>
+  struct is_invocable //
+      : bool_constant<invoke_detail::is_invocable_v<void, I, A...>> {};
+  template <typename R, typename... A>
   FOLLY_INLINE_VARIABLE static constexpr bool is_invocable_r_v =
-      is_invocable_r<R, Args...>::value;
-  template <typename... Args>
-  struct is_nothrow_invocable : folly::is_nothrow_invocable<Invoke, Args...> {};
-  template <typename... Args>
+      invoke_detail::is_invocable_r_v<void, R, I, A...>;
+  template <typename R, typename... A>
+  struct is_invocable_r //
+      : bool_constant<invoke_detail::is_invocable_r_v<void, R, I, A...>> {};
+  template <typename... A>
   FOLLY_INLINE_VARIABLE static constexpr bool is_nothrow_invocable_v =
-      is_nothrow_invocable<Args...>::value;
-  template <typename R, typename... Args>
-  struct is_nothrow_invocable_r
-      : folly::is_nothrow_invocable_r<R, Invoke, Args...> {};
-  template <typename R, typename... Args>
+      invoke_detail::is_nothrow_invocable_v<void, I, A...>;
+  template <typename... A>
+  struct is_nothrow_invocable //
+      : bool_constant<invoke_detail::is_nothrow_invocable_v<void, I, A...>> {};
+  template <typename R, typename... A>
   FOLLY_INLINE_VARIABLE static constexpr bool is_nothrow_invocable_r_v =
-      is_nothrow_invocable_r<R, Args...>::value;
+      invoke_detail::is_nothrow_invocable_r_v<void, R, I, A...>;
+  template <typename R, typename... A>
+  struct is_nothrow_invocable_r //
+      : bool_constant<
+            invoke_detail::is_nothrow_invocable_r_v<void, R, I, A...>> {};
 };
 
 } // namespace folly
@@ -363,7 +369,8 @@ struct invoke_traits : detail::invoke_traits_base<Invoke> {
     FOLLY_DETAIL_CREATE_FREE_INVOKE_TRAITS_USING(_, funcname, __VA_ARGS__) \
     struct __folly_detail_invoke_obj {                                     \
       template <typename... Args>                                          \
-      FOLLY_ERASE_HACK_GCC constexpr auto operator()(Args&&... args) const \
+      FOLLY_MAYBE_UNUSED FOLLY_ERASE_HACK_GCC constexpr auto operator()(   \
+          Args&&... args) const                                            \
           noexcept(noexcept(funcname(static_cast<Args&&>(args)...)))       \
               -> decltype(funcname(static_cast<Args&&>(args)...)) {        \
         return funcname(static_cast<Args&&>(args)...);                     \
@@ -416,8 +423,9 @@ struct invoke_traits : detail::invoke_traits_base<Invoke> {
 #define FOLLY_CREATE_MEMBER_INVOKER(classname, membername)                 \
   struct classname {                                                       \
     template <typename O, typename... Args>                                \
-    FOLLY_ERASE_HACK_GCC constexpr auto operator()(O&& o, Args&&... args)  \
-        const noexcept(noexcept(                                           \
+    FOLLY_MAYBE_UNUSED FOLLY_ERASE_HACK_GCC constexpr auto operator()(     \
+        O&& o, Args&&... args) const                                       \
+        noexcept(noexcept(                                                 \
             static_cast<O&&>(o).membername(static_cast<Args&&>(args)...))) \
             -> decltype(static_cast<O&&>(o).membername(                    \
                 static_cast<Args&&>(args)...)) {                           \
@@ -466,13 +474,150 @@ struct invoke_traits : detail::invoke_traits_base<Invoke> {
  *    traits::is_nothrow_invocable_v<int, Car&&> // true
  *    traits::is_nothrow_invocable_v<char*, Car&&> // false
  */
-#define FOLLY_CREATE_STATIC_MEMBER_INVOKER(classname, membername)       \
-  template <typename T>                                                 \
-  struct classname {                                                    \
-    template <typename... Args>                                         \
-    FOLLY_ERASE constexpr auto operator()(Args&&... args) const         \
-        noexcept(noexcept(T::membername(static_cast<Args&&>(args)...))) \
-            -> decltype(T::membername(static_cast<Args&&>(args)...)) {  \
-      return T::membername(static_cast<Args&&>(args)...);               \
-    }                                                                   \
+#define FOLLY_CREATE_STATIC_MEMBER_INVOKER(classname, membername)             \
+  template <typename T>                                                       \
+  struct classname {                                                          \
+    template <typename... Args, typename U = T>                               \
+    FOLLY_MAYBE_UNUSED FOLLY_ERASE constexpr auto operator()(Args&&... args)  \
+        const noexcept(noexcept(U::membername(static_cast<Args&&>(args)...))) \
+            -> decltype(U::membername(static_cast<Args&&>(args)...)) {        \
+      return U::membername(static_cast<Args&&>(args)...);                     \
+    }                                                                         \
   }
+
+namespace folly {
+
+namespace detail_tag_invoke_fn {
+
+void tag_invoke();
+
+struct tag_invoke_fn {
+  template <typename Tag, typename... Args>
+  constexpr auto operator()(Tag tag, Args&&... args) const noexcept(noexcept(
+      tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...)))
+      -> decltype(
+          tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...)) {
+    return tag_invoke(static_cast<Tag&&>(tag), static_cast<Args&&>(args)...);
+  }
+};
+
+// Manually implement the traits here rather than defining them in terms of
+// the corresponding std::invoke_result/is_invocable/is_nothrow_invocable
+// traits to improve compile-times. We don't need all of the generality of
+// the std:: traits and the tag_invoke traits can be used heavily in CPO-based
+// code so optimising them for compile times can make a big difference.
+
+// Use the immediately-invoked function-pointer trick here to avoid
+// instantiating the std::declval<T>() template.
+
+template <typename Tag, typename... Args>
+using tag_invoke_result_t = decltype(tag_invoke(
+    static_cast<Tag && (*)() noexcept>(nullptr)(),
+    static_cast<Args && (*)() noexcept>(nullptr)()...));
+
+template <typename Tag, typename... Args>
+auto try_tag_invoke(int) noexcept(
+    noexcept(tag_invoke(FOLLY_DECLVAL(Tag&&), FOLLY_DECLVAL(Args&&)...)))
+    -> decltype(
+        static_cast<void>(
+            tag_invoke(FOLLY_DECLVAL(Tag &&), FOLLY_DECLVAL(Args&&)...)),
+        std::true_type{});
+
+template <typename Tag, typename... Args>
+std::false_type try_tag_invoke(...) noexcept(false);
+
+template <template <typename...> class T, typename... Args>
+struct defer {
+  using type = T<Args...>;
+};
+
+struct empty {};
+
+} // namespace detail_tag_invoke_fn
+
+// The expression folly::tag_invoke(tag, args...) is equivalent to performing
+// a call to the expression tag_invoke(tag, args...) using argument-dependent
+// lookup (ADL).
+//
+// This is intended to be used by customization-point objects, which dispatch
+// a call to the CPO to an ADL call to tag_invoke(cpo, args...), using the type
+// of the first argument to disambiguate between customisations for different
+// CPOs rather than using different ADL names for this.
+//
+// For example: Defining a new CPO in terms of tag_invoke.
+//   struct FooCpo {
+//     template<typename A, typename B>
+//     auto operator()(A&& a, B&& b) const
+//         noexcept(folly::is_nothrow_tag_invocable_v<FooCpo, A, B>)
+//         -> folly::tag_invoke_result_t<FooCpo, A, B> {
+//       return folly::tag_invoke(*this, (A&&)a, (B&&)b);
+//     }
+//   };
+//   FOLLY_DEFINE_CPO(FooCpo, Foo)
+//
+// And then customising the Foo CPO for a particular type:
+//   class SomeType {
+//     ...
+//     template<typename B>
+//     friend int tag_invoke(folly::cpo_t<Foo>, const SomeType& a, B&& b) {
+//       // implementation goes here
+//     }
+//   };
+//
+// For more details see the C++ standards proposal: https://wg21.link/P1895R0.
+FOLLY_DEFINE_CPO(detail_tag_invoke_fn::tag_invoke_fn, tag_invoke)
+
+// Query if the 'folly::tag_invoke()' CPO can be invoked with a tag and
+// arguments of the the specified types.
+//
+// This checks whether an overload of the free-function tag_invoke() found
+// by ADL can be invoked with the specified types.
+
+template <typename Tag, typename... Args>
+FOLLY_INLINE_VARIABLE constexpr bool is_tag_invocable_v =
+    decltype(detail_tag_invoke_fn::try_tag_invoke<Tag, Args...>(0))::value;
+
+template <typename Tag, typename... Args>
+struct is_tag_invocable : bool_constant<is_tag_invocable_v<Tag, Args...>> {};
+
+// Query whether the 'folly::tag_invoke()' CPO can be invoked with a tag
+// and arguments of the specified type and that such an invocation is
+// noexcept.
+
+template <typename Tag, typename... Args>
+FOLLY_INLINE_VARIABLE constexpr bool is_nothrow_tag_invocable_v =
+    noexcept(detail_tag_invoke_fn::try_tag_invoke<Tag, Args...>(0));
+
+template <typename Tag, typename... Args>
+struct is_nothrow_tag_invocable
+    : bool_constant<is_nothrow_tag_invocable_v<Tag, Args...>> {};
+
+// Versions of the above that check in addition that the result is
+// convertible to the given return type R.
+
+template <typename R, typename Tag, typename... Args>
+using is_tag_invocable_r =
+    folly::is_invocable_r<R, decltype(folly::tag_invoke), Tag, Args...>;
+
+template <typename R, typename Tag, typename... Args>
+FOLLY_INLINE_VARIABLE constexpr bool is_tag_invocable_r_v =
+    is_tag_invocable_r<R, decltype(folly::tag_invoke), Tag, Args...>::value;
+
+template <typename R, typename Tag, typename... Args>
+using is_nothrow_tag_invocable_r =
+    folly::is_nothrow_invocable_r<R, decltype(folly::tag_invoke), Tag, Args...>;
+
+template <typename R, typename Tag, typename... Args>
+FOLLY_INLINE_VARIABLE constexpr bool is_nothrow_tag_invocable_r_v =
+    is_nothrow_tag_invocable_r<R, Tag, Args...>::value;
+
+using detail_tag_invoke_fn::tag_invoke_result_t;
+
+template <typename Tag, typename... Args>
+struct tag_invoke_result
+    : conditional_t<
+          is_tag_invocable_v<Tag, Args...>,
+          detail_tag_invoke_fn::defer<tag_invoke_result_t, Tag, Args...>,
+          detail_tag_invoke_fn::empty> {};
+
+} // namespace folly

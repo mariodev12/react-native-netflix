@@ -16,12 +16,13 @@
 
 #pragma once
 
+#include <glog/logging.h>
+
 #include <folly/Executor.h>
 #include <folly/MPMCQueue.h>
 #include <folly/Range.h>
 #include <folly/executors/task_queue/BlockingQueue.h>
 #include <folly/synchronization/LifoSem.h>
-#include <glog/logging.h>
 
 namespace folly {
 
@@ -47,9 +48,7 @@ class PriorityLifoSemMPMCQueue : public BlockingQueue<T> {
     }
   }
 
-  uint8_t getNumPriorities() override {
-    return queues_.size();
-  }
+  uint8_t getNumPriorities() override { return queues_.size(); }
 
   // Add at medium priority by default
   BlockingQueueAddResult add(T item) override {

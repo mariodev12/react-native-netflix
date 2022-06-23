@@ -226,8 +226,7 @@ class UnboundedQueue {
   static constexpr size_t Align = 1u << LgAlign;
 
   static_assert(
-      std::is_nothrow_destructible<T>::value,
-      "T must be nothrow_destructible");
+      std::is_nothrow_destructible<T>::value, "T must be nothrow_destructible");
   static_assert((Stride & 1) == 1, "Stride must be odd");
   static_assert(LgSegmentSize < 32, "LgSegmentSize must be < 32");
   static_assert(LgAlign < 16, "LgAlign must be < 16");
@@ -263,22 +262,14 @@ class UnboundedQueue {
   }
 
   /** enqueue */
-  FOLLY_ALWAYS_INLINE void enqueue(const T& arg) {
-    enqueueImpl(arg);
-  }
+  FOLLY_ALWAYS_INLINE void enqueue(const T& arg) { enqueueImpl(arg); }
 
-  FOLLY_ALWAYS_INLINE void enqueue(T&& arg) {
-    enqueueImpl(std::move(arg));
-  }
+  FOLLY_ALWAYS_INLINE void enqueue(T&& arg) { enqueueImpl(std::move(arg)); }
 
   /** dequeue */
-  FOLLY_ALWAYS_INLINE void dequeue(T& item) noexcept {
-    item = dequeueImpl();
-  }
+  FOLLY_ALWAYS_INLINE void dequeue(T& item) noexcept { item = dequeueImpl(); }
 
-  FOLLY_ALWAYS_INLINE T dequeue() noexcept {
-    return dequeueImpl();
-  }
+  FOLLY_ALWAYS_INLINE T dequeue() noexcept { return dequeueImpl(); }
 
   /** try_dequeue */
   FOLLY_ALWAYS_INLINE bool try_dequeue(T& item) noexcept {
@@ -318,8 +309,7 @@ class UnboundedQueue {
   /** try_dequeue_for */
   template <typename Rep, typename Period>
   FOLLY_ALWAYS_INLINE bool try_dequeue_for(
-      T& item,
-      const std::chrono::duration<Rep, Period>& duration) noexcept {
+      T& item, const std::chrono::duration<Rep, Period>& duration) noexcept {
     folly::Optional<T> o = try_dequeue_for(duration);
 
     if (LIKELY(o.has_value())) {
@@ -784,9 +774,7 @@ class UnboundedQueue {
       return flag_.try_wait_until(deadline, opt);
     }
 
-    FOLLY_ALWAYS_INLINE void destroyItem() noexcept {
-      itemPtr()->~T();
-    }
+    FOLLY_ALWAYS_INLINE void destroyItem() noexcept { itemPtr()->~T(); }
 
    private:
     FOLLY_ALWAYS_INLINE T getItem() noexcept {

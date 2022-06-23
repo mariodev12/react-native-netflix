@@ -32,22 +32,10 @@ exception_wrapper::VTable const exception_wrapper::uninit_{
     &noop_<exception_wrapper, exception_wrapper const*>};
 
 exception_wrapper::VTable const exception_wrapper::ExceptionPtr::ops_{
-    copy_,
-    move_,
-    delete_,
-    throw_,
-    type_,
-    get_exception_,
-    get_exception_ptr_};
+    copy_, move_, delete_, throw_, type_, get_exception_, get_exception_ptr_};
 
 exception_wrapper::VTable const exception_wrapper::SharedPtr::ops_{
-    copy_,
-    move_,
-    delete_,
-    throw_,
-    type_,
-    get_exception_,
-    get_exception_ptr_};
+    copy_, move_, delete_, throw_, type_, get_exception_, get_exception_ptr_};
 
 namespace {
 std::exception const* get_std_exception_(std::exception_ptr eptr) noexcept {
@@ -63,11 +51,16 @@ std::exception const* get_std_exception_(std::exception_ptr eptr) noexcept {
 
 exception_wrapper exception_wrapper::from_exception_ptr(
     std::exception_ptr const& ptr) noexcept {
+  return from_exception_ptr(folly::copy(ptr));
+}
+
+exception_wrapper exception_wrapper::from_exception_ptr(
+    std::exception_ptr&& ptr) noexcept {
   if (!ptr) {
     return exception_wrapper();
   }
   try {
-    std::rethrow_exception(ptr);
+    std::rethrow_exception(std::move(ptr));
   } catch (std::exception& e) {
     return exception_wrapper(std::current_exception(), e);
   } catch (...) {

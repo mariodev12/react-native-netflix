@@ -157,10 +157,7 @@ class MemoryMapping {
       Options options = Options());
 
   explicit MemoryMapping(
-      int fd,
-      off_t offset = 0,
-      off_t length = -1,
-      Options options = Options());
+      int fd, off_t offset = 0, off_t length = -1, Options options = Options());
 
   MemoryMapping(const MemoryMapping&) = delete;
   MemoryMapping(MemoryMapping&&) noexcept;
@@ -210,9 +207,7 @@ class MemoryMapping {
   /**
    * A range of bytes mapped by this mapping.
    */
-  ByteRange range() const {
-    return data_;
-  }
+  ByteRange range() const { return data_; }
 
   /**
    * A bitwise cast of the mapped bytes as range of mutable values. Only
@@ -237,17 +232,11 @@ class MemoryMapping {
    * Return the memory area where the file was mapped.
    * Deprecated; use range() instead.
    */
-  StringPiece data() const {
-    return asRange<const char>();
-  }
+  StringPiece data() const { return asRange<const char>(); }
 
-  bool mlocked() const {
-    return locked_;
-  }
+  bool mlocked() const { return locked_; }
 
-  int fd() const {
-    return file_.fd();
-  }
+  int fd() const { return file_.fd(); }
 
  private:
   MemoryMapping();

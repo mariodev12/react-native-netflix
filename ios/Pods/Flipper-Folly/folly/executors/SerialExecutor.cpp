@@ -40,14 +40,14 @@ SerialExecutor::UniquePtr SerialExecutor::createUnique(
   return {executor, Deleter{std::move(parent)}};
 }
 
-bool SerialExecutor::keepAliveAcquire() {
+bool SerialExecutor::keepAliveAcquire() noexcept {
   auto keepAliveCounter =
       keepAliveCounter_.fetch_add(1, std::memory_order_relaxed);
   DCHECK(keepAliveCounter > 0);
   return true;
 }
 
-void SerialExecutor::keepAliveRelease() {
+void SerialExecutor::keepAliveRelease() noexcept {
   auto keepAliveCounter =
       keepAliveCounter_.fetch_sub(1, std::memory_order_acq_rel);
   DCHECK(keepAliveCounter > 0);
@@ -78,17 +78,8 @@ void SerialExecutor::run() {
     Task task;
     queue_.dequeue(task);
 
-    try {
-      folly::RequestContextScopeGuard ctxGuard(std::move(task.ctx));
-      auto func = std::move(task.func);
-      func();
-    } catch (std::exception const& ex) {
-      LOG(ERROR) << "SerialExecutor: func threw unhandled exception "
-                 << folly::exceptionStr(ex);
-    } catch (...) {
-      LOG(ERROR) << "SerialExecutor: func threw unhandled non-exception "
-                    "object";
-    }
+    folly::RequestContextScopeGuard ctxGuard(std::move(task.ctx));
+    invokeCatchingExns("SerialExecutor: func", std::exchange(task.func, {}));
 
     // We want scheduled_ to guard side-effects of completed tasks, so we can't
     // use std::memory_order_relaxed here.

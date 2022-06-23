@@ -16,33 +16,31 @@
 
 #include <folly/detail/SingletonStackTrace.h>
 
+#include <folly/experimental/symbolizer/ElfCache.h>
+#include <folly/experimental/symbolizer/Symbolizer.h>
 #include <folly/portability/Config.h>
-
-#if FOLLY_USE_SYMBOLIZER
-#include <folly/experimental/symbolizer/Symbolizer.h> // @manual
-#endif
 
 namespace folly {
 namespace detail {
 
 std::string getSingletonStackTrace() {
-#if FOLLY_USE_SYMBOLIZER
+#if FOLLY_HAVE_ELF && FOLLY_HAVE_DWARF
 
   // Get and symbolize stack trace
   constexpr size_t kMaxStackTraceDepth = 100;
-  symbolizer::FrameArray<kMaxStackTraceDepth> addresses;
+  auto addresses =
+      std::make_unique<symbolizer::FrameArray<kMaxStackTraceDepth>>();
 
-  if (!getStackTraceSafe(addresses)) {
+  if (!getStackTraceSafe(*addresses)) {
     return "";
   } else {
-    constexpr size_t kDefaultCapacity = 500;
-    symbolizer::ElfCache elfCache(kDefaultCapacity);
+    symbolizer::ElfCache elfCache;
 
     symbolizer::Symbolizer symbolizer(&elfCache);
-    symbolizer.symbolize(addresses);
+    symbolizer.symbolize(*addresses);
 
     symbolizer::StringSymbolizePrinter printer;
-    printer.println(addresses);
+    printer.println(*addresses);
     return printer.str();
   }
 
@@ -50,7 +48,7 @@ std::string getSingletonStackTrace() {
 
   return "";
 
-#endif
+#endif // FOLLY_HAVE_ELF && FOLLY_HAVE_DWARF
 }
 
 } // namespace detail

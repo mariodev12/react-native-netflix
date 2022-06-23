@@ -17,13 +17,12 @@
 #include <folly/io/async/TimeoutManager.h>
 
 #include <boost/intrusive/list.hpp>
+#include <glog/logging.h>
 
 #include <folly/Chrono.h>
 #include <folly/Exception.h>
 #include <folly/Memory.h>
 #include <folly/io/async/AsyncTimeout.h>
-
-#include <glog/logging.h>
 
 namespace folly {
 
@@ -72,16 +71,13 @@ TimeoutManager::TimeoutManager()
     : cobTimeouts_(std::make_unique<CobTimeouts>()) {}
 
 bool TimeoutManager::scheduleTimeoutHighRes(
-    AsyncTimeout* obj,
-    timeout_type_high_res timeout) {
+    AsyncTimeout* obj, timeout_type_high_res timeout) {
   timeout_type timeout_ms = folly::chrono::ceil<timeout_type>(timeout);
   return scheduleTimeout(obj, timeout_ms);
 }
 
 void TimeoutManager::runAfterDelay(
-    Func cob,
-    uint32_t milliseconds,
-    InternalEnum internal) {
+    Func cob, uint32_t milliseconds, InternalEnum internal) {
   if (!tryRunAfterDelay(std::move(cob), milliseconds, internal)) {
     folly::throwSystemError(
         "error in TimeoutManager::runAfterDelay(), failed to schedule timeout");
@@ -89,9 +85,7 @@ void TimeoutManager::runAfterDelay(
 }
 
 bool TimeoutManager::tryRunAfterDelay(
-    Func cob,
-    uint32_t milliseconds,
-    InternalEnum internal) {
+    Func cob, uint32_t milliseconds, InternalEnum internal) {
   if (!cobTimeouts_) {
     return false;
   }

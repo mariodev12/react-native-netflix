@@ -16,9 +16,10 @@
 
 #pragma once
 
+#include <map>
+
 #include <folly/io/async/EventBase.h>
 #include <folly/portability/Event.h>
-#include <map>
 
 namespace folly {
 
@@ -69,9 +70,7 @@ class AsyncSignalHandler {
   /**
    * Get the EventBase used by this AsyncSignalHandler.
    */
-  EventBase* getEventBase() const {
-    return eventBase_;
-  }
+  EventBase* getEventBase() const { return eventBase_; }
 
   /**
    * Register to receive callbacks about the specified signal.

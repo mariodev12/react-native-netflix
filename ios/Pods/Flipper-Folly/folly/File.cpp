@@ -18,9 +18,9 @@
 
 #include <folly/Exception.h>
 #include <folly/FileUtil.h>
-#include <folly/Format.h>
 #include <folly/ScopeGuard.h>
 #include <folly/portability/Fcntl.h>
+#include <folly/portability/FmtCompile.h>
 #include <folly/portability/SysFile.h>
 #include <folly/portability/Unistd.h>
 
@@ -40,9 +40,11 @@ File::File(int fd, bool ownsFd) noexcept : fd_(fd), ownsFd_(ownsFd) {
 File::File(const char* name, int flags, mode_t mode)
     : fd_(::open(name, flags, mode)), ownsFd_(false) {
   if (fd_ == -1) {
-    throwSystemError(
-        folly::format("open(\"{}\", {:#o}, 0{:#o}) failed", name, flags, mode)
-            .fbstr());
+    throwSystemError(fmt::format(
+        FOLLY_FMT_COMPILE("open(\"{}\", {:#o}, 0{:#o}) failed"),
+        name,
+        flags,
+        mode));
   }
   ownsFd_ = true;
 }
@@ -76,10 +78,9 @@ File::~File() {
   // make a temp file with tmpfile(), dup the fd, then return it in a File.
   FILE* tmpFile = tmpfile();
   checkFopenError(tmpFile, "tmpfile() failed");
-  SCOPE_EXIT {
-    fclose(tmpFile);
-  };
+  SCOPE_EXIT { fclose(tmpFile); };
 
+  // TODO(nga): consider setting close-on-exec for the resulting FD
   int fd = ::dup(fileno(tmpFile));
   checkUnixError(fd, "dup() failed");
 
@@ -106,6 +107,22 @@ void swap(File& a, File& b) noexcept {
 File File::dup() const {
   if (fd_ != -1) {
     int fd = ::dup(fd_);
+    checkUnixError(fd, "dup() failed");
+
+    return File(fd, true);
+  }
+
+  return File();
+}
+
+File File::dupCloseOnExec() const {
+  if (fd_ != -1) {
+    int fd;
+#ifdef _WIN32
+    fd = ::dup(fd_);
+#else
+    fd = ::fcntl(fd_, F_DUPFD_CLOEXEC, 0);
+#endif
     checkUnixError(fd, "dup() failed");
 
     return File(fd, true);

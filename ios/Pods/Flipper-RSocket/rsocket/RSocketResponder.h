@@ -126,24 +126,24 @@ class RSocketResponderAdapter : public RSocketResponderCore {
   std::shared_ptr<yarpl::flowable::Subscriber<Payload>> handleRequestChannel(
       Payload request,
       StreamId streamId,
-      std::shared_ptr<yarpl::flowable::Subscriber<Payload>>
-          response) noexcept override;
+      std::shared_ptr<yarpl::flowable::Subscriber<Payload>> response) noexcept
+      override;
 
   /// Internal method for handling stream requests, not intended to be used
   /// by application code.
   void handleRequestStream(
       Payload request,
       StreamId streamId,
-      std::shared_ptr<yarpl::flowable::Subscriber<Payload>>
-          response) noexcept override;
+      std::shared_ptr<yarpl::flowable::Subscriber<Payload>> response) noexcept
+      override;
 
   /// Internal method for handling request-response requests, not intended to be
   /// used by application code.
   void handleRequestResponse(
       Payload request,
       StreamId streamId,
-      std::shared_ptr<yarpl::single::SingleObserver<Payload>>
-          response) noexcept override;
+      std::shared_ptr<yarpl::single::SingleObserver<Payload>> response) noexcept
+      override;
 
   void handleFireAndForget(Payload request, StreamId streamId) override;
   void handleMetadataPush(std::unique_ptr<folly::IOBuf> buf) override;

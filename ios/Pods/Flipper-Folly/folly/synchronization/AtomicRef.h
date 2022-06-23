@@ -43,6 +43,37 @@ struct atomic_ref_base {
     return atomic().load(order);
   }
 
+  bool compare_exchange_weak(
+      T& expected,
+      T desired,
+      std::memory_order success,
+      std::memory_order failure) const noexcept {
+    return atomic().compare_exchange_weak(expected, desired, success, failure);
+  }
+
+  bool compare_exchange_weak(
+      T& expected,
+      T desired,
+      std::memory_order order = std::memory_order_seq_cst) const noexcept {
+    return atomic().compare_exchange_weak(expected, desired, order);
+  }
+
+  bool compare_exchange_strong(
+      T& expected,
+      T desired,
+      std::memory_order success,
+      std::memory_order failure) const noexcept {
+    return atomic().compare_exchange_strong(
+        expected, desired, success, failure);
+  }
+
+  bool compare_exchange_strong(
+      T& expected,
+      T desired,
+      std::memory_order order = std::memory_order_seq_cst) const noexcept {
+    return atomic().compare_exchange_strong(expected, desired, order);
+  }
+
   std::atomic<T>& atomic() const noexcept {
     return reinterpret_cast<std::atomic<T>&>(ref_); // ub dragons be here
   }
@@ -55,13 +86,13 @@ struct atomic_ref_integral_base : atomic_ref_base<T> {
   using atomic_ref_base<T>::atomic_ref_base;
   using atomic_ref_base<T>::atomic;
 
-  T fetch_add(T arg, std::memory_order order = std::memory_order_seq_cst) const
-      noexcept {
+  T fetch_add(T arg, std::memory_order order = std::memory_order_seq_cst)
+      const noexcept {
     return atomic().fetch_add(arg, order);
   }
 
-  T fetch_sub(T arg, std::memory_order order = std::memory_order_seq_cst) const
-      noexcept {
+  T fetch_sub(T arg, std::memory_order order = std::memory_order_seq_cst)
+      const noexcept {
     return atomic().fetch_sub(arg, order);
   }
 };
@@ -93,6 +124,13 @@ class atomic_ref : public detail::atomic_ref_select<T> {
  public:
   using base::base;
 };
+
+#if __cpp_deduction_guides >= 201703
+
+template <typename T>
+atomic_ref(T&) -> atomic_ref<T>;
+
+#endif
 
 struct make_atomic_ref_t {
   template <

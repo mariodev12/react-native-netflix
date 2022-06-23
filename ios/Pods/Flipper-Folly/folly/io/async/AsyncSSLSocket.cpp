@@ -16,11 +16,9 @@
 
 #include <folly/io/async/AsyncSSLSocket.h>
 
-#include <folly/io/async/EventBase.h>
-#include <folly/portability/Sockets.h>
-
 #include <fcntl.h>
 #include <sys/types.h>
+
 #include <cerrno>
 #include <chrono>
 #include <memory>
@@ -33,14 +31,19 @@
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
 #include <folly/io/SocketOptionMap.h>
+#include <folly/io/async/EventBase.h>
 #include <folly/io/async/ssl/BasicTransportCertificate.h>
 #include <folly/lang/Bits.h>
 #include <folly/portability/OpenSSL.h>
+#include <folly/portability/Sockets.h>
+#include <folly/ssl/SSLSession.h>
+#include <folly/ssl/SSLSessionManager.h>
 
 using std::shared_ptr;
 
 using folly::SpinLock;
 using folly::io::Cursor;
+using folly::ssl::SSLSessionUniquePtr;
 
 namespace {
 using folly::AsyncSSLSocket;
@@ -206,13 +209,50 @@ class AsyncSSLSocketConnector : public AsyncSocket::ConnectCallback,
   }
 };
 
+AsyncSSLSocket::AsyncSSLSocket(
+    shared_ptr<SSLContext> ctx, EventBase* evb, Options&& options)
+    : AsyncSocket(evb),
+      server_{options.isServer},
+      ctx_{std::move(ctx)},
+      certificateIdentityVerifier_{std::move(options.verifier)},
+      handshakeTimeout_{this, evb},
+      connectionTimeout_{this, evb} {
+  init();
+  if (options.isServer) {
+    SSL_CTX_set_info_callback(
+        ctx_->getSSLCtx(), AsyncSSLSocket::sslInfoCallback);
+  }
+  if (options.deferSecurityNegotiation) {
+    sslState_ = STATE_UNENCRYPTED;
+  }
+}
+
+AsyncSSLSocket::AsyncSSLSocket(
+    std::shared_ptr<folly::SSLContext> ctx,
+    AsyncSocket::UniquePtr oldAsyncSocket,
+    Options&& options)
+    : AsyncSocket(std::move(oldAsyncSocket)),
+      server_{options.isServer},
+      ctx_{std::move(ctx)},
+      certificateIdentityVerifier_{std::move(options.verifier)},
+      handshakeTimeout_{this, AsyncSocket::getEventBase()},
+      connectionTimeout_{this, AsyncSocket::getEventBase()} {
+  noTransparentTls_ = true;
+  init();
+  if (options.isServer) {
+    SSL_CTX_set_info_callback(
+        ctx_->getSSLCtx(), AsyncSSLSocket::sslInfoCallback);
+  }
+  if (options.deferSecurityNegotiation) {
+    sslState_ = STATE_UNENCRYPTED;
+  }
+}
+
 /**
  * Create a client AsyncSSLSocket
  */
 AsyncSSLSocket::AsyncSSLSocket(
-    shared_ptr<SSLContext> ctx,
-    EventBase* evb,
-    bool deferSecurityNegotiation)
+    shared_ptr<SSLContext> ctx, EventBase* evb, bool deferSecurityNegotiation)
     : AsyncSocket(evb),
       ctx_(std::move(ctx)),
       handshakeTimeout_(this, evb),
@@ -250,10 +290,10 @@ AsyncSSLSocket::AsyncSSLSocket(
 
 AsyncSSLSocket::AsyncSSLSocket(
     shared_ptr<SSLContext> ctx,
-    AsyncSocket::UniquePtr oldAsyncSocket,
+    AsyncSocket* oldAsyncSocket,
     bool server,
     bool deferSecurityNegotiation)
-    : AsyncSocket(std::move(oldAsyncSocket)),
+    : AsyncSocket(oldAsyncSocket),
       server_(server),
       ctx_(std::move(ctx)),
       handshakeTimeout_(this, AsyncSocket::getEventBase()),
@@ -268,6 +308,14 @@ AsyncSSLSocket::AsyncSSLSocket(
     sslState_ = STATE_UNENCRYPTED;
   }
 }
+
+AsyncSSLSocket::AsyncSSLSocket(
+    shared_ptr<SSLContext> ctx,
+    AsyncSocket::UniquePtr oldAsyncSocket,
+    bool server,
+    bool deferSecurityNegotiation)
+    : AsyncSSLSocket(
+          ctx, oldAsyncSocket.get(), server, deferSecurityNegotiation) {}
 
 #if FOLLY_OPENSSL_HAS_SNI
 /**
@@ -326,11 +374,6 @@ void AsyncSSLSocket::closeNow() {
     }
   }
 
-  if (sslSession_ != nullptr) {
-    SSL_SESSION_free(sslSession_);
-    sslSession_ = nullptr;
-  }
-
   sslState_ = STATE_CLOSED;
 
   if (handshakeTimeout_.isScheduled()) {
@@ -370,7 +413,7 @@ bool AsyncSSLSocket::good() const {
        sslState_ == STATE_UNINIT));
 }
 
-// The AsyncTransportWrapper definition of 'good' states that the transport is
+// The AsyncTransport definition of 'good' states that the transport is
 // ready to perform reads and writes, so sslState_ == UNINIT must report !good.
 // connecting can be true when the sslState_ == UNINIT because the AsyncSocket
 // is connected but we haven't initiated the call to SSL_connect.
@@ -392,12 +435,7 @@ std::string AsyncSSLSocket::getApplicationProtocol() const noexcept {
 }
 
 void AsyncSSLSocket::setEorTracking(bool track) {
-  if (isEorTrackingEnabled() != track) {
-    AsyncSocket::setEorTracking(track);
-    appEorByteNo_ = 0;
-    appEorByteWriteFlags_ = {};
-    minEorRawByteNo_ = 0;
-  }
+  AsyncSocket::setEorTracking(track);
 }
 
 size_t AsyncSSLSocket::getRawBytesWritten() const {
@@ -407,7 +445,7 @@ size_t AsyncSSLSocket::getRawBytesWritten() const {
   // get the write bytes of the last bio
   BIO* b;
   if (!ssl_ || !(b = SSL_get_wbio(ssl_.get()))) {
-    return 0;
+    return rawBytesWritten_;
   }
   BIO* next = BIO_next(b);
   while (next != nullptr) {
@@ -415,7 +453,12 @@ size_t AsyncSSLSocket::getRawBytesWritten() const {
     next = BIO_next(b);
   }
 
-  return BIO_number_written(b);
+  // Raw bytes written should be >= BIO_number_written(b)
+  // Verify no shadowing of rawBytesWritten_
+  DCHECK_GE(AsyncSocket::getRawBytesWritten(), BIO_number_written(b));
+  DCHECK_GE(rawBytesWritten_, BIO_number_written(b));
+  DCHECK_EQ(rawBytesWritten_, AsyncSocket::getRawBytesWritten());
+  return rawBytesWritten_;
 }
 
 size_t AsyncSSLSocket::getRawBytesReceived() const {
@@ -471,6 +514,10 @@ void AsyncSSLSocket::sslAccept(
     cacheAddresses();
   }
 
+  // AsyncSSLSocket will leak memory if zero copy if left enabled after
+  // the TLS handshake
+  setZeroCopy(false);
+
   handshakeStartTime_ = std::chrono::steady_clock::now();
   // Make end time at least >= start time.
   handshakeEndTime_ = handshakeStartTime_;
@@ -518,7 +565,7 @@ void AsyncSSLSocket::attachSSLContext(const std::shared_ptr<SSLContext>& ctx) {
   OpenSSLUtils::setSSLInitialCtx(ssl_.get(), sslCtx);
   // Detach sets the socket's context to the dummy context. Thus we must acquire
   // this lock.
-  SpinLockGuard guard(dummyCtxLock);
+  std::unique_lock<SpinLock> guard(dummyCtxLock);
   SSL_set_SSL_CTX(ssl_.get(), sslCtx);
 }
 
@@ -544,7 +591,7 @@ void AsyncSSLSocket::detachSSLContext() {
     OpenSSLUtils::setSSLInitialCtx(ssl_.get(), nullptr);
   }
 
-  SpinLockGuard guard(dummyCtxLock);
+  std::unique_lock<SpinLock> guard(dummyCtxLock);
   if (nullptr == dummyCtx) {
     // We need to lazily initialize the dummy context so we don't
     // accidentally override any programmatic settings to openssl
@@ -639,8 +686,7 @@ AsyncSSLSocket* AsyncSSLSocket::getFromSSL(const SSL* ssl) {
 }
 
 void AsyncSSLSocket::failHandshake(
-    const char* /* fn */,
-    const AsyncSocketException& ex) {
+    const char* /* fn */, const AsyncSocketException& ex) {
   startFail();
   if (handshakeTimeout_.isScheduled()) {
     handshakeTimeout_.cancelTimeout();
@@ -675,9 +721,17 @@ void AsyncSSLSocket::connect(
     const folly::SocketAddress& address,
     int timeout,
     const SocketOptionMap& options,
-    const folly::SocketAddress& bindAddr) noexcept {
+    const folly::SocketAddress& bindAddr,
+    const std::string& ifName) noexcept {
   auto timeoutChrono = std::chrono::milliseconds(timeout);
-  connect(callback, address, timeoutChrono, timeoutChrono, options, bindAddr);
+  connect(
+      callback,
+      address,
+      timeoutChrono,
+      timeoutChrono,
+      options,
+      bindAddr,
+      ifName);
 }
 
 void AsyncSSLSocket::connect(
@@ -686,7 +740,8 @@ void AsyncSSLSocket::connect(
     std::chrono::milliseconds connectTimeout,
     std::chrono::milliseconds totalConnectTimeout,
     const SocketOptionMap& options,
-    const folly::SocketAddress& bindAddr) noexcept {
+    const folly::SocketAddress& bindAddr,
+    const std::string& ifName) noexcept {
   assert(!server_);
   assert(state_ == StateEnum::UNINIT);
   assert(sslState_ == STATE_UNINIT || sslState_ == STATE_UNENCRYPTED);
@@ -698,7 +753,12 @@ void AsyncSSLSocket::connect(
     callback = allocatedConnectCallback_;
   }
   AsyncSocket::connect(
-      callback, address, int(connectTimeout.count()), options, bindAddr);
+      callback,
+      address,
+      int(connectTimeout.count()),
+      options,
+      bindAddr,
+      ifName);
 }
 
 void AsyncSSLSocket::cancelConnect() {
@@ -823,11 +883,14 @@ void AsyncSSLSocket::sslConn(
     return failHandshake(__func__, *ex);
   }
 
-  if (sslSession_ != nullptr) {
+  // AsyncSSLSocket will leak memory if zero copy if left enabled after
+  // the TLS handshake
+  setZeroCopy(false);
+
+  SSLSessionUniquePtr sessionPtr = sslSessionManager_.getRawSession();
+  if (sessionPtr) {
     sessionResumptionAttempted_ = true;
-    SSL_set_session(ssl_.get(), sslSession_);
-    SSL_SESSION_free(sslSession_);
-    sslSession_ = nullptr;
+    SSL_set_session(ssl_.get(), sessionPtr.get());
   }
 #if FOLLY_OPENSSL_HAS_SNI
   if (!tlsextHostname_.empty()) {
@@ -836,6 +899,7 @@ void AsyncSSLSocket::sslConn(
 #endif
 
   SSL_set_ex_data(ssl_.get(), getSSLExDataIndex(), this);
+  sslSessionManager_.attachToSSL(ssl_.get());
 
   handshakeConnectTimeout_ = timeout;
   startSSLConnect();
@@ -853,33 +917,24 @@ void AsyncSSLSocket::startSSLConnect() {
   handleConnect();
 }
 
-SSL_SESSION* AsyncSSLSocket::getSSLSession() {
-  if (ssl_ != nullptr && sslState_ == STATE_ESTABLISHED) {
-    return SSL_get1_session(ssl_.get());
-  }
-
-  return sslSession_;
+shared_ptr<ssl::SSLSession> AsyncSSLSocket::getSSLSession() {
+  return sslSessionManager_.getSession();
 }
 
 const SSL* AsyncSSLSocket::getSSL() const {
   return ssl_.get();
 }
 
-void AsyncSSLSocket::setSSLSession(SSL_SESSION* session, bool takeOwnership) {
-  if (sslSession_) {
-    SSL_SESSION_free(sslSession_);
-  }
-  sslSession_ = session;
-  if (!takeOwnership && session != nullptr) {
-    // Increment the reference count
-    // This API exists in BoringSSL and OpenSSL 1.1.0
-    SSL_SESSION_up_ref(session);
-  }
+void AsyncSSLSocket::setSSLSession(shared_ptr<ssl::SSLSession> session) {
+  sslSessionManager_.setSession(std::move(session));
+}
+
+void AsyncSSLSocket::setRawSSLSession(SSLSessionUniquePtr session) {
+  sslSessionManager_.setRawSession(std::move(session));
 }
 
 void AsyncSSLSocket::getSelectedNextProtocol(
-    const unsigned char** protoName,
-    unsigned* protoLen) const {
+    const unsigned char** protoName, unsigned* protoLen) const {
   if (!getSelectedNextProtocolNoThrow(protoName, protoLen)) {
     throw AsyncSocketException(
         AsyncSocketException::NOT_SUPPORTED, "ALPN not supported");
@@ -887,8 +942,7 @@ void AsyncSSLSocket::getSelectedNextProtocol(
 }
 
 bool AsyncSSLSocket::getSelectedNextProtocolNoThrow(
-    const unsigned char** protoName,
-    unsigned* protoLen) const {
+    const unsigned char** protoName, unsigned* protoLen) const {
   *protoName = nullptr;
   *protoLen = 0;
 #if FOLLY_OPENSSL_HAS_ALPN
@@ -1001,11 +1055,9 @@ const AsyncTransportCertificate* AsyncSSLSocket::getSelfCertificate() const {
 }
 
 bool AsyncSSLSocket::willBlock(
-    int ret,
-    int* sslErrorOut,
-    unsigned long* errErrorOut) noexcept {
+    int ret, int* sslErrorOut, unsigned long* errErrorOut) noexcept {
   *errErrorOut = 0;
-  int error = *sslErrorOut = SSL_get_error(ssl_.get(), ret);
+  int error = *sslErrorOut = sslGetErrorImpl(ssl_.get(), ret);
   if (error == SSL_ERROR_WANT_READ) {
     // Register for read event if not already.
     updateEventRegistration(EventHandler::READ, EventHandler::WRITE);
@@ -1252,7 +1304,13 @@ void AsyncSSLSocket::handleConnect() noexcept {
   assert(ssl_);
 
   auto originalState = state_;
-  int ret = SSL_connect(ssl_.get());
+  int ret;
+  {
+    // If openssl is not built with TSAN then we can get a TSAN false positive
+    // when calling SSL_connect from multiple threads.
+    folly::annotate_ignore_thread_sanitizer_guard g(__FILE__, __LINE__);
+    ret = SSL_connect(ssl_.get());
+  }
   if (ret <= 0) {
     int sslError;
     unsigned long errError;
@@ -1378,8 +1436,8 @@ void AsyncSSLSocket::handleRead() noexcept {
   AsyncSocket::handleRead();
 }
 
-AsyncSocket::ReadResult
-AsyncSSLSocket::performRead(void** buf, size_t* buflen, size_t* offset) {
+AsyncSocket::ReadResult AsyncSSLSocket::performRead(
+    void** buf, size_t* buflen, size_t* offset) {
   VLOG(4) << "AsyncSSLSocket::performRead() this=" << this << ", buf=" << *buf
           << ", buflen=" << *buflen;
 
@@ -1405,7 +1463,7 @@ AsyncSSLSocket::performRead(void** buf, size_t* buflen, size_t* offset) {
         std::make_unique<SSLException>(SSLError::CLIENT_RENEGOTIATION));
   }
   if (bytes <= 0) {
-    int error = SSL_get_error(ssl_.get(), bytes);
+    int error = sslGetErrorImpl(ssl_.get(), bytes);
     if (error == SSL_ERROR_WANT_READ) {
       // The caller will register for read event if not already.
       if (errno == EWOULDBLOCK || errno == EAGAIN) {
@@ -1600,22 +1658,61 @@ AsyncSocket::WriteResult AsyncSSLSocket::performWrite(
       }
     }
 
-    // cork the current write if the original flags included CORK or if there
-    // are remaining iovec to write
-    corkCurrentWrite_ =
-        isSet(flags, WriteFlags::CORK) || (i + buffersStolen + 1 < count);
+    // From here, the write flow is as follows:
+    //   - sslWriteImpl calls SSL_write, which encrypts the passed buffer.
+    //   - SSL_write calls AsyncSSLSocket::bioWrite with the encrypted buffer.
+    //   - AsyncSSLSocket::bioWrite calls AsyncSocket::sendSocketMessage(...).
+    //
+    // When sendSocketMessage calls sendMsg, WriteFlags are transformed into
+    // ancillary data and/or sendMsg flags. If WriteFlag::EOR is in flags and
+    // trackEor_ is set, then we should ensure that MSG_EOR is only passed to
+    // sendmsg when the final byte of the orginally passed in buffer is being
+    // written. Since the buffer originally passed to performWrite may be split
+    // up and written over multiple calls to sendmsg, we have to take care to
+    // unset the EOR flag if it was included in the WriteFlags passed in and
+    // we're writing a buffer that does _not_ contain the final byte of the
+    // orignally passed buffer.
+    //
+    // We handle EOR as follows:
+    //   - We set currWriteFlags_ to the passed in WriteFlags.
+    //   - If sslWriteBuf does NOT contain the last byte of the passed in iovec,
+    //     then we set currBytesToFinalByte_ to folly::none. In bioWrite, we
+    //     unset WriteFlags::EOR if it is set in currWriteFlags_.
+    //   - If sslWriteBuf DOES contain the last byte of the passed in iovec,
+    //     then we set bytesToFinalByte_ to int(len). In bioWrite, if the length
+    //     of the passed in buffer >= currBytesToFinalByte_, then we leave the
+    //     flags in currWriteFlags_ alone.
+    //
+    // What about timestamp flags?
+    //   - We don't do any special handling for timestamping flags.
+    //   - This may mean that more timestamps than necessary get generated, but
+    //     that's OK; you already have to deal with that for timestamping due to
+    //     the possibility of partial writes.
+    //   - MSG_EOR used to be used for timestamping, but hasn't been for years.
+    //
+    // Finally, why even care about MSG_EOR, if not for timestamping?
+    //   - If set, it is marked in the corresponding tcp_skb_cb; this can be
+    //     useful when debugging.
+    //   - The kernel uses it to decide whether socket buffers can be collapsed
+    //     together (see tcp_skb_can_collapse_to).
+    currWriteFlags_ = flags;
+    uint32_t iovecWrittenToSslWriteBuf = i + buffersStolen + 1;
+    CHECK_LE(iovecWrittenToSslWriteBuf, count);
+    if (iovecWrittenToSslWriteBuf == count) { // last byte is in sslWriteBuf
+      currBytesToFinalByte_ = len; // length of current buffer
+    } else { // there are still remaining buffers / iovec to write
+      currBytesToFinalByte_ = folly::none;
+      currWriteFlags_ |= WriteFlags::CORK;
+    }
 
-    // track the EoR if:
-    //  (1) there are write flags that require EoR tracking (EOR / TIMESTAMP_TX)
-    //  (2) if the buffer includes the EOR byte
-    appEorByteWriteFlags_ = flags & kEorRelevantWriteFlags;
-    bool trackEor = appEorByteWriteFlags_ != folly::WriteFlags::NONE &&
-        (i + buffersStolen + 1 == count);
-    bytes = eorAwareSSLWrite(ssl_, sslWriteBuf, int(len), trackEor);
-
+    bytes = sslWriteImpl(ssl_.get(), sslWriteBuf, int(len));
     if (bytes <= 0) {
-      int error = SSL_get_error(ssl_.get(), int(bytes));
+      int error = sslGetErrorImpl(ssl_.get(), int(bytes));
       if (error == SSL_ERROR_WANT_WRITE) {
+        // The entire buffer needs to be passed in again, so *partialWritten
+        // is set to the original offset where we started for this call to
+        // performWrite(); see SSL_ERROR_WANT_WRITE documentation for details.
+        //
         // The caller will register for write event if not already.
         *partialWritten = uint32_t(offset);
         return WriteResult(totalWritten);
@@ -1624,6 +1721,7 @@ AsyncSocket::WriteResult AsyncSSLSocket::performWrite(
     }
 
     totalWritten += bytes;
+    appBytesWritten_ += bytes;
 
     if (bytes == (ssize_t)len) {
       // The full iovec is written.
@@ -1648,42 +1746,6 @@ AsyncSocket::WriteResult AsyncSSLSocket::performWrite(
   return WriteResult(totalWritten);
 }
 
-int AsyncSSLSocket::eorAwareSSLWrite(
-    const ssl::SSLUniquePtr& ssl,
-    const void* buf,
-    int n,
-    bool eor) {
-  if (eor && isEorTrackingEnabled()) {
-    if (appEorByteNo_) {
-      // cannot track for more than one app byte EOR
-      CHECK(appEorByteNo_ == appBytesWritten_ + n);
-    } else {
-      appEorByteNo_ = appBytesWritten_ + n;
-    }
-
-    // 1. It is fine to keep updating minEorRawByteNo_.
-    // 2. It is _min_ in the sense that SSL record will add some overhead.
-    minEorRawByteNo_ = getRawBytesWritten() + n;
-  }
-
-  n = sslWriteImpl(ssl.get(), buf, n);
-  if (n > 0) {
-    appBytesWritten_ += n;
-    if (appEorByteNo_) {
-      if (getRawBytesWritten() >= minEorRawByteNo_) {
-        minEorRawByteNo_ = 0;
-      }
-      if (appBytesWritten_ == appEorByteNo_) {
-        appEorByteNo_ = 0;
-        appEorByteWriteFlags_ = {};
-      } else {
-        CHECK(appBytesWritten_ < appEorByteNo_);
-      }
-    }
-  }
-  return n;
-}
-
 void AsyncSSLSocket::sslInfoCallback(const SSL* ssl, int where, int ret) {
   AsyncSSLSocket* sslSocket = AsyncSSLSocket::getFromSSL(ssl);
   if (sslSocket->handshakeComplete_ && (where & SSL_CB_HANDSHAKE_START)) {
@@ -1706,46 +1768,25 @@ void AsyncSSLSocket::sslInfoCallback(const SSL* ssl, int where, int ret) {
 }
 
 int AsyncSSLSocket::bioWrite(BIO* b, const char* in, int inl) {
-  struct msghdr msg;
-  struct iovec iov;
-  AsyncSSLSocket* tsslSock;
-
-  iov.iov_base = const_cast<char*>(in);
-  iov.iov_len = size_t(inl);
-  memset(&msg, 0, sizeof(msg));
-  msg.msg_iov = &iov;
-  msg.msg_iovlen = 1;
-
+  // get pointer to AsyncSSLSocket from BioAppData
   auto appData = OpenSSLUtils::getBioAppData(b);
   CHECK(appData);
+  AsyncSSLSocket* sslSock = reinterpret_cast<AsyncSSLSocket*>(appData);
+  CHECK(sslSock);
 
-  tsslSock = reinterpret_cast<AsyncSSLSocket*>(appData);
-  CHECK(tsslSock);
-
-  WriteFlags flags = WriteFlags::NONE;
-  if (tsslSock->isEorTrackingEnabled() && tsslSock->minEorRawByteNo_ &&
-      tsslSock->minEorRawByteNo_ <= BIO_number_written(b) + inl) {
-    flags |= tsslSock->appEorByteWriteFlags_;
+  // if EOR is tracked, correct if needed
+  WriteFlags flags = sslSock->currWriteFlags_;
+  if (sslSock->trackEor_ &&
+      (!sslSock->currBytesToFinalByte_.has_value() ||
+       *(sslSock->currBytesToFinalByte_) > (size_t)inl)) {
+    // unset EOR if set, since we're not writing the last byte yet
+    flags = unSet(flags, folly::WriteFlags::EOR);
   }
 
-  if (tsslSock->corkCurrentWrite_) {
-    flags |= WriteFlags::CORK;
-  }
-
-  int msg_flags = tsslSock->getSendMsgParamsCB()->getFlags(
-      flags, false /*zeroCopyEnabled*/);
-  msg.msg_controllen =
-      tsslSock->getSendMsgParamsCB()->getAncillaryDataSize(flags);
-  CHECK_GE(
-      AsyncSocket::SendMsgParamsCallback::maxAncillaryDataSize,
-      msg.msg_controllen);
-  if (msg.msg_controllen != 0) {
-    msg.msg_control = reinterpret_cast<char*>(alloca(msg.msg_controllen));
-    tsslSock->getSendMsgParamsCB()->getAncillaryData(flags, msg.msg_control);
-  }
-
-  auto result =
-      tsslSock->sendSocketMessage(OpenSSLUtils::getBioFd(b), &msg, msg_flags);
+  struct iovec vec;
+  vec.iov_base = const_cast<char*>(in);
+  vec.iov_len = size_t(inl);
+  auto result = sslSock->sendSocketMessage(&vec, 1, flags);
   BIO_clear_retry_flags(b);
   if (!result.exception && result.writeReturn <= 0) {
     if (OpenSSLUtils::getBioShouldRetryWrite(int(result.writeReturn))) {
@@ -1787,8 +1828,7 @@ int AsyncSSLSocket::bioRead(BIO* b, char* out, int outl) {
 }
 
 int AsyncSSLSocket::sslVerifyCallback(
-    int preverifyOk,
-    X509_STORE_CTX* x509Ctx) {
+    int preverifyOk, X509_STORE_CTX* x509Ctx) {
   SSL* ssl = (SSL*)X509_STORE_CTX_get_ex_data(
       x509Ctx, SSL_get_ex_data_X509_STORE_CTX_idx());
   AsyncSSLSocket* self = AsyncSSLSocket::getFromSSL(ssl);
@@ -1796,9 +1836,63 @@ int AsyncSSLSocket::sslVerifyCallback(
   VLOG(3) << "AsyncSSLSocket::sslVerifyCallback() this=" << self << ", "
           << "fd=" << self->fd_ << ", preverifyOk=" << preverifyOk;
 
-  return (self->handshakeCallback_)
-      ? self->handshakeCallback_->handshakeVer(self, preverifyOk, x509Ctx)
-      : preverifyOk;
+  if (self->handshakeCallback_) {
+    int callbackOk =
+        (self->handshakeCallback_->handshakeVer(self, preverifyOk, x509Ctx))
+        ? 1
+        : 0;
+
+    if (preverifyOk != callbackOk) {
+      // HandshakeCB overwrites result from OpenSSL. One way or another, do not
+      // call CertificateIdentityVerifier.
+      return callbackOk;
+    }
+  }
+
+  if (!preverifyOk) {
+    // OpenSSL verification failure, no need to call CertificateIdentityVerifier
+    return 0;
+  }
+
+  // only invoke the CertificateIdentityVerifier for the leaf certificate and
+  // only if OpenSSL's preverify and the HandshakeCB's handshakeVer succeeded
+
+  int currentDepth = X509_STORE_CTX_get_error_depth(x509Ctx);
+  if (currentDepth != 0 || self->certificateIdentityVerifier_ == nullptr) {
+    return 1;
+  }
+
+  X509* peerX509 = X509_STORE_CTX_get_current_cert(x509Ctx);
+  X509_up_ref(peerX509);
+  folly::ssl::X509UniquePtr peer{peerX509};
+  auto cn = OpenSSLUtils::getCommonName(peerX509);
+  auto cert = std::make_unique<BasicTransportCertificate>(
+      std::move(cn), std::move(peer));
+
+  auto certVerifyResult =
+      self->certificateIdentityVerifier_->verifyLeaf(*cert.get());
+
+  if (certVerifyResult.hasException()) {
+    LOG(ERROR) << "AsyncSSLSocket::sslVerifyCallback(this=" << self
+               << ", fd=" << self->fd_
+               << ") Failed to verify leaf certificate identity(ies): "
+               << folly::exceptionStr(certVerifyResult.exception());
+    return 0;
+  }
+
+  return 1;
+}
+
+void AsyncSSLSocket::enableByteEvents() {
+  if (getSSLVersion() == SSL3_VERSION || getSSLVersion() == TLS1_VERSION) {
+    // Socket timestamping can cause us to split up TLS records in a way that
+    // breaks some old Android (<= 3.0) clients.
+    return failByteEvents(AsyncSocketException(
+        AsyncSocketException::NOT_SUPPORTED,
+        withAddr("failed to enable byte events: "
+                 "not supported for SSLv3 or TLSv1")));
+  }
+  AsyncSocket::enableByteEvents();
 }
 
 void AsyncSSLSocket::enableClientHelloParsing() {
@@ -1952,8 +2046,7 @@ void AsyncSSLSocket::clientHelloParsingCallback(
 }
 
 void AsyncSSLSocket::getSSLClientCiphers(
-    std::string& clientCiphers,
-    bool convertToString) const {
+    std::string& clientCiphers, bool convertToString) const {
   std::string ciphers;
 
   if (!parseClientHello_ ||

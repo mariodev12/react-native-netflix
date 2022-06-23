@@ -15,20 +15,22 @@
  */
 
 #include <folly/TimeoutQueue.h>
+
 #include <algorithm>
+#include <limits>
 #include <vector>
 
 namespace folly {
 
-TimeoutQueue::Id
-TimeoutQueue::add(int64_t now, int64_t delay, Callback callback) {
+TimeoutQueue::Id TimeoutQueue::add(
+    int64_t now, int64_t delay, Callback callback) {
   Id id = nextId_++;
   timeouts_.insert({id, now + delay, -1, std::move(callback)});
   return id;
 }
 
-TimeoutQueue::Id
-TimeoutQueue::addRepeating(int64_t now, int64_t interval, Callback callback) {
+TimeoutQueue::Id TimeoutQueue::addRepeating(
+    int64_t now, int64_t interval, Callback callback) {
   Id id = nextId_++;
   timeouts_.insert({id, now + interval, interval, std::move(callback)});
   return id;
@@ -56,10 +58,11 @@ int64_t TimeoutQueue::runInternal(int64_t now, bool onceOnly) {
       // Reinsert if repeating, do this before executing callbacks
       // so the callbacks have a chance to call erase
       if (event.repeatInterval >= 0) {
-        timeouts_.insert({event.id,
-                          now + event.repeatInterval,
-                          event.repeatInterval,
-                          event.callback});
+        timeouts_.insert(
+            {event.id,
+             now + event.repeatInterval,
+             event.repeatInterval,
+             event.callback});
       }
     }
 

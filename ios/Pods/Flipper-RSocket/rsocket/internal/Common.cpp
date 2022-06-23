@@ -122,7 +122,7 @@ std::string humanify(std::unique_ptr<folly::IOBuf> const& buf) {
   std::string ret;
   size_t cursor = 0;
 
-  for (const auto range : *buf) {
+  for (const auto& range : *buf) {
     for (const unsigned char chr : range) {
       if (cursor >= 20)
         goto outer;

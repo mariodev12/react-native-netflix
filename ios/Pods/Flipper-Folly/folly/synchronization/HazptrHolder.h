@@ -17,13 +17,11 @@
 #pragma once
 
 #include <folly/Traits.h>
-
+#include <folly/synchronization/AsymmetricMemoryBarrier.h>
 #include <folly/synchronization/Hazptr-fwd.h>
 #include <folly/synchronization/HazptrDomain.h>
 #include <folly/synchronization/HazptrRec.h>
 #include <folly/synchronization/HazptrThrLocal.h>
-
-#include <folly/synchronization/AsymmetricMemoryBarrier.h>
 
 namespace folly {
 
@@ -121,8 +119,8 @@ class hazptr_holder {
   }
 
   template <typename T, typename Func>
-  FOLLY_ALWAYS_INLINE bool
-  try_protect(T*& ptr, const Atom<T*>& src, Func f) noexcept {
+  FOLLY_ALWAYS_INLINE bool try_protect(
+      T*& ptr, const Atom<T*>& src, Func f) noexcept {
     /* Filtering the protected pointer through function Func is useful
        for stealing bits of the pointer word */
     auto p = ptr;
@@ -188,8 +186,7 @@ class hazptr_holder {
  */
 template <template <typename> class Atom>
 FOLLY_ALWAYS_INLINE void swap(
-    hazptr_holder<Atom>& lhs,
-    hazptr_holder<Atom>& rhs) noexcept {
+    hazptr_holder<Atom>& lhs, hazptr_holder<Atom>& rhs) noexcept {
   lhs.swap(rhs);
 }
 

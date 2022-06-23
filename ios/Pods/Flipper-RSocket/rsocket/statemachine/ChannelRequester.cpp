@@ -132,7 +132,7 @@ void ChannelRequester::initStream(Payload&& request) {
   const size_t remainingN = initialResponseAllowance_.consumeAll();
 
   // Send as much as possible with the initial request.
-  CHECK_GE(kMaxRequestN, initialN);
+  CHECK_GE(static_cast<size_t>(kMaxRequestN), initialN);
   newStream(
       StreamType::CHANNEL, static_cast<uint32_t>(initialN), std::move(request));
   // We must inform ConsumerBase about an implicit allowance we have

@@ -63,8 +63,7 @@ class EventHandler {
    *                   changeHandlerFD() before the handler can be registered.
    */
   explicit EventHandler(
-      EventBase* eventBase = nullptr,
-      NetworkSocket fd = NetworkSocket());
+      EventBase* eventBase = nullptr, NetworkSocket fd = NetworkSocket());
 
   EventHandler(const EventHandler&) = delete;
   EventHandler& operator=(const EventHandler&) = delete;
@@ -98,9 +97,7 @@ class EventHandler {
    *         always unregistered, even if it was already registered prior to
    *         this call to registerHandler().
    */
-  bool registerHandler(uint16_t events) {
-    return registerImpl(events, false);
-  }
+  bool registerHandler(uint16_t events) { return registerImpl(events, false); }
 
   /**
    * Unregister the handler, if it is registered.
@@ -110,9 +107,7 @@ class EventHandler {
   /**
    * Returns true if the handler is currently registered.
    */
-  bool isHandlerRegistered() const {
-    return event_.isEventRegistered();
-  }
+  bool isHandlerRegistered() const { return event_.isEventRegistered(); }
 
   /**
    * Attach the handler to a EventBase.
@@ -178,6 +173,28 @@ class EventHandler {
   }
 
   bool isPending() const;
+
+  void setEventCallback(EventReadCallback* cb) { event_.setCallback(cb); }
+
+  void setEventCallback(EventRecvmsgCallback* cb) { event_.setCallback(cb); }
+
+  void resetEventCallback() { event_.resetCallback(); }
+
+  /*
+   * If supported by the backend updates the event to be edge-triggered.
+   * Returns true iff the update was successful.
+   *
+   * This should only be used for already registered events (e.g. after
+   * registerHandler/registerInternalHandler calls). Calling any other method
+   * on the EventHandler may reset this flag.
+   * This can be useful to avoid read calls with eventfds.
+   */
+  bool setEdgeTriggered() { return event_.setEdgeTriggered(); }
+
+  /*
+   * Make an event active.
+   */
+  bool activateEvent(int res) { return event_.eb_event_active(res); }
 
  private:
   bool registerImpl(uint16_t events, bool internal);

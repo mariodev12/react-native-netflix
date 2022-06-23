@@ -44,10 +44,9 @@ ResumeIdentificationToken::ResumeIdentificationToken(const std::string& token) {
       (token.size() % 2) != 0) {
     throw std::invalid_argument("ResumeToken not in right format: " + token);
   }
-  size_t i = 2;
-  while (i < token.size()) {
-    const uint8_t firstNibble = getNibble(i++);
-    const uint8_t secondNibble = getNibble(i++);
+  for (size_t i = 2 /* skipping '0x' */; i < token.size(); i += 2) {
+    const uint8_t firstNibble = getNibble(i + 0);
+    const uint8_t secondNibble = getNibble(i + 1);
     bits_.push_back((firstNibble << 4) | secondNibble);
   }
 }

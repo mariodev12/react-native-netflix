@@ -34,12 +34,12 @@
 #include <folly/SharedMutex.h>
 #include <folly/container/Foreach.h>
 #include <folly/detail/AtFork.h>
+#include <folly/detail/StaticSingletonManager.h>
+#include <folly/lang/Exception.h>
 #include <folly/memory/Malloc.h>
 #include <folly/portability/PThread.h>
 #include <folly/synchronization/MicroSpinLock.h>
 #include <folly/system/ThreadId.h>
-
-#include <folly/detail/StaticSingletonManager.h>
 
 // In general, emutls cleanup is not guaranteed to play nice with the way
 // StaticMeta mixes direct pthread calls and the use of __thread. This has
@@ -73,7 +73,8 @@ struct ThreadEntry;
  * StaticMetaBase::lock_
  */
 struct ThreadEntryNode {
-  uint32_t id;
+  uint32_t id : 31; // Note: this will never be kEntryIDInvalid.
+  bool isZero : 1; // equivalent to !next, but used only in one thread
   ThreadEntry* parent;
   ThreadEntry* prev;
   ThreadEntry* next;
@@ -82,27 +83,23 @@ struct ThreadEntryNode {
 
   void init(ThreadEntry* entry, uint32_t newId) {
     id = newId;
+    isZero = false;
     parent = prev = next = entry;
   }
 
   void initZero(ThreadEntry* entry, uint32_t newId) {
     id = newId;
+    isZero = true;
     parent = entry;
     prev = next = nullptr;
   }
 
   // if the list this node is part of is empty
-  FOLLY_ALWAYS_INLINE bool empty() const {
-    return (next == parent);
-  }
+  FOLLY_ALWAYS_INLINE bool empty() const { return (next == parent); }
 
-  FOLLY_ALWAYS_INLINE bool zero() const {
-    return (!prev);
-  }
+  FOLLY_ALWAYS_INLINE bool zero() const { return isZero; }
 
-  FOLLY_ALWAYS_INLINE ThreadEntry* getThreadEntry() {
-    return parent;
-  }
+  FOLLY_ALWAYS_INLINE ThreadEntry* getThreadEntry() { return parent; }
 
   FOLLY_ALWAYS_INLINE ThreadEntryNode* getPrev();
 
@@ -274,9 +271,7 @@ class PthreadKeyUnregister {
 #endif
   }
 
-  static void registerKey(pthread_key_t key) {
-    instance_.registerKeyImpl(key);
-  }
+  static void registerKey(pthread_key_t key) { instance_.registerKeyImpl(key); }
 
  private:
   /**
@@ -290,7 +285,8 @@ class PthreadKeyUnregister {
   void registerKeyImpl(pthread_key_t key) {
     MSLGuard lg(lock_);
     if (size_ == kMaxKeys) {
-      throw std::logic_error("pthread_key limit has already been reached");
+      throw_exception<std::logic_error>(
+          "pthread_key limit has already been reached");
     }
     keys_[size_++] = key;
   }
@@ -327,13 +323,7 @@ struct StaticMetaBase {
     EntryID(const EntryID& other) = delete;
     EntryID& operator=(const EntryID& other) = delete;
 
-    uint32_t getOrInvalid() {
-      // It's OK for this to be relaxed, even though we're effectively doing
-      // double checked locking in using this value. We only care about the
-      // uniqueness of IDs, getOrAllocate does not modify any other memory
-      // this thread will use.
-      return value.load(std::memory_order_relaxed);
-    }
+    uint32_t getOrInvalid() { return value.load(std::memory_order_acquire); }
 
     uint32_t getOrAllocate(StaticMetaBase& meta) {
       uint32_t id = getOrInvalid();
@@ -382,8 +372,8 @@ struct StaticMetaBase {
   // returns != nullptr if the ThreadEntry::elements was reallocated
   // nullptr if the ThreadEntry::elements was just extended
   // and throws stdd:bad_alloc if memory cannot be allocated
-  static ElementWrapper*
-  reallocate(ThreadEntry* threadEntry, uint32_t idval, size_t& newCapacity);
+  static ElementWrapper* reallocate(
+      ThreadEntry* threadEntry, uint32_t idval, size_t& newCapacity);
 
   uint32_t nextId_;
   std::vector<uint32_t> freeIds_;
@@ -403,7 +393,7 @@ struct StaticMetaBase {
 // for threads that use ThreadLocalPtr objects collide on a lock inside
 // StaticMeta; you can specify multiple Tag types to break that lock.
 template <class Tag, class AccessMode>
-struct StaticMeta final : StaticMetaBase {
+struct FOLLY_EXPORT StaticMeta final : StaticMetaBase {
   StaticMeta()
       : StaticMetaBase(
             &StaticMeta::getThreadEntrySlow,
@@ -426,8 +416,8 @@ struct StaticMeta final : StaticMetaBase {
     // cached fast path, leaving only one branch here and one indirection below.
     uint32_t id = ent->getOrInvalid();
 #ifdef FOLLY_TLD_USE_FOLLY_TLS
-    static FOLLY_TLS ThreadEntry* threadEntry{};
-    static FOLLY_TLS size_t capacity{};
+    static thread_local ThreadEntry* threadEntry{};
+    static thread_local size_t capacity{};
 #else
     ThreadEntry* threadEntry{};
     size_t capacity{};
@@ -439,10 +429,7 @@ struct StaticMeta final : StaticMetaBase {
   }
 
   FOLLY_NOINLINE static void getSlowReserveAndCache(
-      EntryID* ent,
-      uint32_t& id,
-      ThreadEntry*& threadEntry,
-      size_t& capacity) {
+      EntryID* ent, uint32_t& id, ThreadEntry*& threadEntry, size_t& capacity) {
     auto& inst = instance();
     threadEntry = inst.threadEntry_();
     if (UNLIKELY(threadEntry->getElementsCapacity() <= id)) {
@@ -461,7 +448,7 @@ struct StaticMeta final : StaticMetaBase {
     if (!threadEntry) {
       ThreadEntryList* threadEntryList = StaticMeta::getThreadEntryList();
 #ifdef FOLLY_TLD_USE_FOLLY_TLS
-      static FOLLY_TLS ThreadEntry threadEntrySingleton;
+      static thread_local ThreadEntry threadEntrySingleton;
       threadEntry = &threadEntrySingleton;
 #else
       threadEntry = new ThreadEntry();
@@ -495,9 +482,7 @@ struct StaticMeta final : StaticMetaBase {
     return instance().lock_.try_lock(); // Make sure it's created
   }
 
-  static void onForkParent() {
-    instance().lock_.unlock();
-  }
+  static void onForkParent() { instance().lock_.unlock(); }
 
   static void onForkChild() {
     // only the current thread survives
