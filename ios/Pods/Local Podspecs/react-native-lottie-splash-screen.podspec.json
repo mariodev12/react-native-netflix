@@ -1,0 +1,21 @@
+{
+  "name": "react-native-lottie-splash-screen",
+  "version": "0.1.14",
+  "summary": "A lottie splash screen for react-native, hide when application loaded ,it works on iOS and Android.",
+  "authors": "taehyun",
+  "homepage": "https://github.com/HwangTaehyun/react-native-lottie-splash-screen#readme",
+  "license": "MIT",
+  "platforms": {
+    "ios": "7.0"
+  },
+  "source": {
+    "git": "https://github.com/HwangTaehyun/react-native-lottie-splash-screen",
+    "tag": "v0.1.14"
+  },
+  "source_files": "ios/*.{h,m}",
+  "dependencies": {
+    "React": [
+
+    ]
+  }
+}

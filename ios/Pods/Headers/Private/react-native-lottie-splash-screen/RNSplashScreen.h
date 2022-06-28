@@ -1,0 +1,1 @@
+../../../../../node_modules/react-native-lottie-splash-screen/ios/RNSplashScreen.h

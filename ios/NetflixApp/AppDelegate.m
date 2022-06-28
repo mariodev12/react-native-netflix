@@ -3,6 +3,8 @@
 #import <React/RCTBridge.h>
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTRootView.h>
+#import "RNSplashScreen.h"
+#import "NetflixApp-Swift.h"
 
 #ifdef FB_SONARKIT_ENABLED
 #import <FlipperKit/FlipperClient.h>
@@ -47,6 +49,20 @@ static void InitializeFlipper(UIApplication *application) {
   rootViewController.view = rootView;
   self.window.rootViewController = rootViewController;
   [self.window makeKeyAndVisible];
+  
+  Dynamic *t = [Dynamic new];
+  UIView *animationView = [t createAnimationViewWithRootView:rootView lottieName:@"logo"]; // change lottieName to your lottie files name
+  animationView.backgroundColor = [UIColor whiteColor]; // change backgroundColor
+
+  // register LottieSplashScreen to RNSplashScreen
+  [RNSplashScreen showLottieSplash:animationView inRootView:rootView];
+
+  // play
+  [t playWithAnimationView:animationView];
+
+  // If you want the animation layout to be forced to remove when hide is called, use this code
+  [RNSplashScreen setAnimationFinished:true];
+  
   return YES;
 }
 

@@ -6,7 +6,7 @@
  * @flow strict-local
  */
 
-import * as React from "react";
+import React, { useEffect } from "react";
 import "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -24,6 +24,8 @@ import NewAdditionsScreen from "./screens/NewAdditionsScreen";
 import SearchScreen from "./screens/SearchScreen";
 import DownloadScreen from "./screens/DownloadScreen";
 import CategoriesScreen from "./screens/CategoriesScreen";
+
+import SplashScreen from "react-native-lottie-splash-screen";
 
 import { getFocusedRouteNameFromRoute } from "@react-navigation/native";
 
@@ -115,4 +117,13 @@ const RootStackScreen = () => {
   );
 };
 
-export default RootStackScreen;
+const App = () => {
+  useEffect(() => {
+    setTimeout(() => {
+      SplashScreen.hide(); // here
+    }, 3800);
+  }, []);
+  return <RootStackScreen />;
+};
+
+export default App;
