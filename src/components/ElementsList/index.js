@@ -4,7 +4,10 @@ import { View, Text, StyleSheet, FlatList, Image } from "react-native";
 
 import Info from "react-native-vector-icons/Feather";
 import Dots from "react-native-vector-icons/Entypo";
-import Play from "react-native-vector-icons/Ionicons";
+import ProgressBar from "../ProgressBar";
+import PlayButton from "../PlayButton";
+import { useNavigation } from "@react-navigation/native";
+import { TouchableHighlight } from "react-native-gesture-handler";
 
 const DATA = require("../../../assets/assets.json");
 
@@ -13,14 +16,10 @@ const ElementsList = ({ title, data, type }) => {
     return (
       <View>
         <View style={styles.overlayCover}>
-          <View style={styles.coverPlay}>
-            <Play style={styles.playIcon} name="play" color="white" size={30} />
-          </View>
+          <PlayButton />
           <Image style={styles.cover} source={{ uri: item.image }} />
         </View>
-        <View style={styles.progressbar}>
-          <View style={{ height: 3, backgroundColor: "red", width: "50%" }} />
-        </View>
+        <ProgressBar width={"100%"} progress={"20%"} />
         <View style={styles.settings}>
           <Info name="info" color="#ccc" size={14} />
           <Dots name="dots-three-vertical" color="#ccc" size={14} />
@@ -30,7 +29,12 @@ const ElementsList = ({ title, data, type }) => {
   };
 
   const Original = ({ item }) => {
-    return <Image style={styles.cover} source={{ uri: item.image }} />;
+    const navigation = useNavigation();
+    return (
+      <TouchableHighlight onPress={() => navigation.navigate("DetailScreen")}>
+        <Image style={styles.cover} source={{ uri: item.image }} />
+      </TouchableHighlight>
+    );
   };
 
   return (
@@ -86,23 +90,6 @@ const styles = StyleSheet.create({
   },
   overlayCover: {
     position: "relative",
-  },
-  coverPlay: {
-    position: "absolute",
-    left: "25%",
-    top: "33%",
-    zIndex: 1,
-    width: 50,
-    height: 50,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 30,
-    borderColor: "white",
-    backgroundColor: "rgba(35, 35, 35, 0.8)",
-  },
-  playIcon: {
-    marginLeft: 2,
   },
 });
 

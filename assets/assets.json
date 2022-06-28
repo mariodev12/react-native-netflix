@@ -42,6 +42,476 @@
         "name": "intimidad",
         "image": "https://butterflyflower.s3.eu-west-1.amazonaws.com/cover/intimidad.jpg"
       }
-    ]
+    ],
+    "dummyEpisodes": {
+      "_id": "61d57c38e10f460042da9861",
+      "air_date": "2022-06-22",
+      "episodes": [
+        {
+          "air_date": "2022-06-22",
+          "episode_number": 1,
+          "crew": [
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "5c6cfa41925141250a0ee56a",
+              "adult": false,
+              "gender": 2,
+              "id": 1227939,
+              "known_for_department": "Writing",
+              "name": "Steve Blackman",
+              "original_name": "Steve Blackman",
+              "popularity": 5.936,
+              "profile_path": "/ui2tZkndNgit4Gsb4nRPzKyjPZx.jpg"
+            },
+            {
+              "job": "Director",
+              "department": "Directing",
+              "credit_id": "5ddeaf10c51acd0015f1a29f",
+              "adult": false,
+              "gender": 2,
+              "id": 175311,
+              "known_for_department": "Directing",
+              "name": "Jeremy Webb",
+              "original_name": "Jeremy Webb",
+              "popularity": 2.744,
+              "profile_path": null
+            },
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "62b3706a0257640062aa8879",
+              "adult": false,
+              "gender": 1,
+              "id": 238634,
+              "known_for_department": "Writing",
+              "name": "M. A. Lovretta",
+              "original_name": "M. A. Lovretta",
+              "popularity": 1.38,
+              "profile_path": null
+            }
+          ],
+          "guest_stars": [],
+          "id": 3593776,
+          "name": "Meet the Family",
+          "overview": "After averting a doomsday in Dallas, the Umbrella siblings return to a very different Academy — now ruled by the powerful and hostile Sparrows.",
+          "production_code": "",
+          "runtime": 51,
+          "season_number": 3,
+          "still_path": "/aPmaLYbRpTKFnWncmBnqBMuBDMp.jpg",
+          "vote_average": 9.7,
+          "vote_count": 10
+        },
+        {
+          "air_date": "2022-06-22",
+          "episode_number": 2,
+          "crew": [
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "5f4f3e4f75f1ad00398803d3",
+              "adult": false,
+              "gender": 2,
+              "id": 159780,
+              "known_for_department": "Writing",
+              "name": "Jesse McKeown",
+              "original_name": "Jesse McKeown",
+              "popularity": 2.296,
+              "profile_path": null
+            },
+            {
+              "job": "Director",
+              "department": "Directing",
+              "credit_id": "62b37847b5bc2100610d1ad7",
+              "adult": false,
+              "gender": 1,
+              "id": 232937,
+              "known_for_department": "Directing",
+              "name": "Cheryl Dunye",
+              "original_name": "Cheryl Dunye",
+              "popularity": 0.6,
+              "profile_path": "/AcZ081LAJxz11HH855NGDyCHsyr.jpg"
+            }
+          ],
+          "guest_stars": [],
+          "id": 3594466,
+          "name": "World's Biggest Ball of Twine",
+          "overview": "With their Number One missing, the Sparrows take a hostage. Allison makes a painful discovery. Klaus takes Five on an eye-opening road trip.",
+          "production_code": "",
+          "runtime": 53,
+          "season_number": 3,
+          "still_path": "/y2H2Yr68rivBuf4FiQaHQYvUs7g.jpg",
+          "vote_average": 8.3,
+          "vote_count": 3
+        },
+        {
+          "air_date": "2022-06-22",
+          "episode_number": 3,
+          "crew": [
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "5f4f3e85501cf200333600e5",
+              "adult": false,
+              "gender": 0,
+              "id": 2763288,
+              "known_for_department": "Writing",
+              "name": "Robert Askins",
+              "original_name": "Robert Askins",
+              "popularity": 0.98,
+              "profile_path": null
+            },
+            {
+              "job": "Director",
+              "department": "Directing",
+              "credit_id": "62b37847b5bc2100610d1ad7",
+              "adult": false,
+              "gender": 1,
+              "id": 232937,
+              "known_for_department": "Directing",
+              "name": "Cheryl Dunye",
+              "original_name": "Cheryl Dunye",
+              "popularity": 0.6,
+              "profile_path": "/AcZ081LAJxz11HH855NGDyCHsyr.jpg"
+            }
+          ],
+          "guest_stars": [],
+          "id": 3594468,
+          "name": "Pocket Full of Lightning",
+          "overview": "As people start disappearing in waves, Five and Lila reluctantly team up to solve their time-travel problem. Klaus sees a new side of his father.",
+          "production_code": "",
+          "runtime": 49,
+          "season_number": 3,
+          "still_path": "/q2pjwGvwObkY71HTJyHFq6hbeQ0.jpg",
+          "vote_average": 8.7,
+          "vote_count": 3
+        },
+        {
+          "air_date": "2022-06-22",
+          "episode_number": 4,
+          "crew": [
+            {
+              "job": "Director",
+              "department": "Directing",
+              "credit_id": "5f2581927c6de300351a61c8",
+              "adult": false,
+              "gender": 2,
+              "id": 31119,
+              "known_for_department": "Directing",
+              "name": "Sylvain White",
+              "original_name": "Sylvain White",
+              "popularity": 6.539,
+              "profile_path": "/8n84QfPuQCvMaOPXNOOcK1ehhOC.jpg"
+            },
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "5f4f3efd501cf20035361aa7",
+              "adult": false,
+              "gender": 1,
+              "id": 2763291,
+              "known_for_department": "Writing",
+              "name": "Aeryn Michelle Williams",
+              "original_name": "Aeryn Michelle Williams",
+              "popularity": 1.176,
+              "profile_path": null
+            }
+          ],
+          "guest_stars": [],
+          "id": 3594469,
+          "name": "Kugelblitz",
+          "overview": "Luther and Sloane hatch a plan to end the war between the families. Viktor reconnects with someone from the past. Five has an unsettling encounter.",
+          "production_code": "",
+          "runtime": 52,
+          "season_number": 3,
+          "still_path": "/vmkBSfGKZCHCsM69buOFJrwGsCw.jpg",
+          "vote_average": 8.667,
+          "vote_count": 3
+        },
+        {
+          "air_date": "2022-06-22",
+          "episode_number": 5,
+          "crew": [
+            {
+              "job": "Director",
+              "department": "Directing",
+              "credit_id": "5f2581927c6de300351a61c8",
+              "adult": false,
+              "gender": 2,
+              "id": 31119,
+              "known_for_department": "Directing",
+              "name": "Sylvain White",
+              "original_name": "Sylvain White",
+              "popularity": 6.539,
+              "profile_path": "/8n84QfPuQCvMaOPXNOOcK1ehhOC.jpg"
+            },
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "62b618120fb39800914443d9",
+              "adult": false,
+              "gender": 0,
+              "id": 2551839,
+              "known_for_department": "Writing",
+              "name": "Elizabeth Padden",
+              "original_name": "Elizabeth Padden",
+              "popularity": 0.6,
+              "profile_path": null
+            }
+          ],
+          "guest_stars": [],
+          "id": 3594471,
+          "name": "Kindest Cut",
+          "overview": "Klaus's relationship with death proves more complicated than anyone knew. Viktor finally learns what happened to the Umbrellas' mothers.",
+          "production_code": "",
+          "runtime": 45,
+          "season_number": 3,
+          "still_path": "/skKXuaVI1Zd18xsikjkMnWQsNYd.jpg",
+          "vote_average": 8,
+          "vote_count": 3
+        },
+        {
+          "air_date": "2022-06-22",
+          "episode_number": 6,
+          "crew": [
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "62b7248d3d43e00061661219",
+              "adult": false,
+              "gender": 0,
+              "id": 2412463,
+              "known_for_department": "Writing",
+              "name": "Lauren Otero",
+              "original_name": "Lauren Otero",
+              "popularity": 0.98,
+              "profile_path": null
+            },
+            {
+              "job": "Director",
+              "department": "Directing",
+              "credit_id": "62b724a8bc8657045138d33f",
+              "adult": false,
+              "gender": 2,
+              "id": 104831,
+              "known_for_department": "Writing",
+              "name": "Jeff King",
+              "original_name": "Jeff King",
+              "popularity": 2.608,
+              "profile_path": null
+            }
+          ],
+          "guest_stars": [],
+          "id": 3594473,
+          "name": "Marigold",
+          "overview": "Five chases down Pogo, Viktor and Harlan attempt a transfer of powers, and Diego and Lila venture beyond the wall of the White Buffalo Suite.",
+          "production_code": "",
+          "runtime": 49,
+          "season_number": 3,
+          "still_path": "/8G4tssxLmtqJx4CUNRdSM39tdl7.jpg",
+          "vote_average": 8,
+          "vote_count": 1
+        },
+        {
+          "air_date": "2022-06-22",
+          "episode_number": 7,
+          "crew": [
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "62b3706a0257640062aa8879",
+              "adult": false,
+              "gender": 1,
+              "id": 238634,
+              "known_for_department": "Writing",
+              "name": "M. A. Lovretta",
+              "original_name": "M. A. Lovretta",
+              "popularity": 1.38,
+              "profile_path": null
+            },
+            {
+              "job": "Director",
+              "department": "Directing",
+              "credit_id": "62b7593167203d0061370faf",
+              "adult": false,
+              "gender": 1,
+              "id": 93120,
+              "known_for_department": "Directing",
+              "name": "Kate Woods",
+              "original_name": "Kate Woods",
+              "popularity": 0.842,
+              "profile_path": null
+            }
+          ],
+          "guest_stars": [],
+          "id": 3594475,
+          "name": "Auf Wiedersehen",
+          "overview": "In 1989, Lila digs up one of her mother's secrets. The families join forces to fight the Kugelblitz. Reginald teaches Klaus to harness his powers.",
+          "production_code": "",
+          "runtime": 52,
+          "season_number": 3,
+          "still_path": "/tyBmVxEVrIR41T71gZfN98bhYYP.jpg",
+          "vote_average": 8,
+          "vote_count": 1
+        },
+        {
+          "air_date": "2022-06-22",
+          "episode_number": 8,
+          "crew": [
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "5f4f3efd501cf20035361aa7",
+              "adult": false,
+              "gender": 1,
+              "id": 2763291,
+              "known_for_department": "Writing",
+              "name": "Aeryn Michelle Williams",
+              "original_name": "Aeryn Michelle Williams",
+              "popularity": 1.176,
+              "profile_path": null
+            },
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "5f4f3e4f75f1ad00398803d3",
+              "adult": false,
+              "gender": 2,
+              "id": 159780,
+              "known_for_department": "Writing",
+              "name": "Jesse McKeown",
+              "original_name": "Jesse McKeown",
+              "popularity": 2.296,
+              "profile_path": null
+            },
+            {
+              "job": "Director",
+              "department": "Directing",
+              "credit_id": "62b75cc373520500511fac5a",
+              "adult": false,
+              "gender": 2,
+              "id": 79279,
+              "known_for_department": "Directing",
+              "name": "Paco Cabezas",
+              "original_name": "Paco Cabezas",
+              "popularity": 1.788,
+              "profile_path": "/aQm4jU9Hgd6Sv3AJqQGzKNN7a52.jpg"
+            }
+          ],
+          "guest_stars": [],
+          "id": 3594479,
+          "name": "Wedding at the End of the World",
+          "overview": "With the universe collapsing around them, the gang gathers for a day of romance, awkwardness and debauchery at the Hotel Obsidian.",
+          "production_code": "",
+          "runtime": 49,
+          "season_number": 3,
+          "still_path": "/7TgDN7Jkuf7hPsUUfFXWbqwiB5D.jpg",
+          "vote_average": 0,
+          "vote_count": 0
+        },
+        {
+          "air_date": "2022-06-22",
+          "episode_number": 9,
+          "crew": [
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "5f4f3e85501cf200333600e5",
+              "adult": false,
+              "gender": 0,
+              "id": 2763288,
+              "known_for_department": "Writing",
+              "name": "Robert Askins",
+              "original_name": "Robert Askins",
+              "popularity": 0.98,
+              "profile_path": null
+            },
+            {
+              "job": "Director",
+              "department": "Directing",
+              "credit_id": "62b75cc373520500511fac5a",
+              "adult": false,
+              "gender": 2,
+              "id": 79279,
+              "known_for_department": "Directing",
+              "name": "Paco Cabezas",
+              "original_name": "Paco Cabezas",
+              "popularity": 1.788,
+              "profile_path": "/aQm4jU9Hgd6Sv3AJqQGzKNN7a52.jpg"
+            }
+          ],
+          "guest_stars": [],
+          "id": 3594480,
+          "name": "Seven Bells",
+          "overview": "Reginald goes all out to convince the children to sign on to his plan. Five tries to recover a drunken memory. Allison has a change of heart.",
+          "production_code": "",
+          "runtime": 40,
+          "season_number": 3,
+          "still_path": "/euZoODtDe0yHW64DvX3E28SCe2h.jpg",
+          "vote_average": 10,
+          "vote_count": 1
+        },
+        {
+          "air_date": "2022-06-22",
+          "episode_number": 10,
+          "crew": [
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "5c6cfa41925141250a0ee56a",
+              "adult": false,
+              "gender": 2,
+              "id": 1227939,
+              "known_for_department": "Writing",
+              "name": "Steve Blackman",
+              "original_name": "Steve Blackman",
+              "popularity": 5.936,
+              "profile_path": "/ui2tZkndNgit4Gsb4nRPzKyjPZx.jpg"
+            },
+            {
+              "job": "Teleplay",
+              "department": "Writing",
+              "credit_id": "5f4f3e85501cf200333600e5",
+              "adult": false,
+              "gender": 0,
+              "id": 2763288,
+              "known_for_department": "Writing",
+              "name": "Robert Askins",
+              "original_name": "Robert Askins",
+              "popularity": 0.98,
+              "profile_path": null
+            },
+            {
+              "job": "Director",
+              "department": "Directing",
+              "credit_id": "62b724a8bc8657045138d33f",
+              "adult": false,
+              "gender": 2,
+              "id": 104831,
+              "known_for_department": "Writing",
+              "name": "Jeff King",
+              "original_name": "Jeff King",
+              "popularity": 2.608,
+              "profile_path": null
+            }
+          ],
+          "guest_stars": [],
+          "id": 3594482,
+          "name": "Oblivion",
+          "overview": "Shaken, the family confronts the deadly mysteries of the Hotel Oblivion — and the growing suspicion that their mission is not what it seems.",
+          "production_code": "",
+          "runtime": 49,
+          "season_number": 3,
+          "still_path": "/lE4Nr8JvzUY4uYCf23b3Uk3YbcD.jpg",
+          "vote_average": 0,
+          "vote_count": 0
+        }
+      ],
+      "name": "Season 3",
+      "overview": "Back at the Academy, the Umbrellas clash with a new squad of Hargreeves siblings as a mysterious force begins to wreak havoc on the city.",
+      "id": 238485,
+      "poster_path": "/usfDnDCm8FwNoJU5M9Szq0QGs3W.jpg",
+      "season_number": 3
+    }
   }
 ]

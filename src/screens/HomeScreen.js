@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   SafeAreaView,
@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import ElementsList from "../components/ElementsList";
 
-import Header from "../components/Header.js";
+import Header from "../components/Header/index.js";
 import HeroImage from "../components/HeroImage/index.js";
 const HERO_IMAGE = require("../../assets/hero-image.png");
 

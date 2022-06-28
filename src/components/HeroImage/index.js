@@ -15,6 +15,7 @@ import Info from "react-native-vector-icons/Feather";
 import LinearGradient from "react-native-linear-gradient";
 
 import Logo from "../Logo";
+import TypeProductLogo from "../TypeProductLogo";
 
 const LOGO = require("../../../assets/logo.png");
 
@@ -28,10 +29,7 @@ const HeroImage = ({ type, title, category, name }) => {
         colors={["rgba(0,0,0, 0.1)", "rgba(0,0,0, 1)"]}
         style={styles.heroImageContent}
       >
-        <View style={styles.type}>
-          <Logo />
-          <Text style={styles.typeText}>SERIE</Text>
-        </View>
+        <TypeProductLogo name="SERIE" />
         <View style={styles.information}>
           <Text style={styles.informationTitle}>
             La vida secreta de nuestras mascotas

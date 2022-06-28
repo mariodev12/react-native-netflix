@@ -1,17 +1,93 @@
-[
-  {
-    "name": "@Alf",
-    "avatar": "",
-    "backgroundColor": "#D22F28"
-  },
-  {
-    "name": "M@rio",
-    "avatar": "",
-    "backgroundColor": "#791BDE"
-  },
-  {
-    "name": "Irene",
-    "avatar": "",
-    "backgroundColor": "#DDB13D"
-  }
-]
+{
+  "users": [
+    {
+      "name": "@Alf",
+      "avatar": "",
+      "backgroundColor": "#D22F28"
+    },
+    {
+      "name": "M@rio",
+      "avatar": "",
+      "backgroundColor": "#791BDE"
+    },
+    {
+      "name": "Irene",
+      "avatar": "",
+      "backgroundColor": "#DDB13D"
+    }
+  ],
+  "categories": [
+    {
+      "name": "Inicio"
+    },
+    {
+      "name": "Mi lista"
+    },
+    {
+      "name": "Disponible para descargar"
+    },
+    {
+      "name": "Acción"
+    },
+    {
+      "name": "Aclamadas por la crítica"
+    },
+    {
+      "name": "Animes"
+    },
+    {
+      "name": "Celebra el Orgullo"
+    },
+    {
+      "name": "Ciencia ficción"
+    },
+    {
+      "name": "Comedias"
+    },
+    {
+      "name": "Documentales"
+    },
+    {
+      "name": "Dramas"
+    },
+    {
+      "name": "Españolas"
+    },
+    {
+      "name": "Extranjeras"
+    },
+    {
+      "name": "Europeas"
+    },
+    {
+      "name": "Fantásticas"
+    },
+    {
+      "name": "Monólogos de humor"
+    },
+    {
+      "name": "Música y musicales"
+    },
+    {
+      "name": "Para toda la familia"
+    },
+    {
+      "name": "Reality"
+    },
+    {
+      "name": "Románticas"
+    },
+    {
+      "name": "Taquilleras"
+    },
+    {
+      "name": "Terror"
+    },
+    {
+      "name": "Thrillers"
+    },
+    {
+      "name": "Descripción de audio"
+    }
+  ]
+}
