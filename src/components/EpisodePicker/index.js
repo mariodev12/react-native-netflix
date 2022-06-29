@@ -1,27 +1,43 @@
+import { useNavigation } from "@react-navigation/native";
 import React from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  TouchableHighlight,
+} from "react-native";
 
 import Download from "react-native-vector-icons/Octicons";
 import OverlayPlay from "../OverlayPlay";
 import ProgressBar from "../ProgressBar";
 
 const EpisodePicker = ({ data }) => {
+  const navigation = useNavigation();
   return (
     <View>
       {/* https://www.themoviedb.org/t/p/w454_and_h254_bestv2/aPmaLYbRpTKFnWncmBnqBMuBDMp.jpg */}
       {data.map(
         ({ episode_number, name, runtime, overview, still_path }, i) => (
-          <View style={styles.item}>
+          <View style={styles.item} key={i}>
             <View style={styles.row}>
-              <OverlayPlay>
-                <Image
-                  style={styles.thumbnail}
-                  source={{
-                    uri: `https://www.themoviedb.org/t/p/w454_and_h254_bestv2/${still_path}`,
-                  }}
-                />
-                <ProgressBar width={"100%"} progress={"45%"} />
-              </OverlayPlay>
+              <TouchableHighlight
+                onPress={() =>
+                  navigation.navigate("Video", {
+                    rotate: true,
+                  })
+                }
+              >
+                <OverlayPlay>
+                  <Image
+                    style={styles.thumbnail}
+                    source={{
+                      uri: `https://www.themoviedb.org/t/p/w454_and_h254_bestv2/${still_path}`,
+                    }}
+                  />
+                  <ProgressBar width={"100%"} progress={"45%"} />
+                </OverlayPlay>
+              </TouchableHighlight>
               <View style={styles.titleContainer}>
                 <Text style={[styles.white, styles.title]}>
                   {episode_number}. {name}

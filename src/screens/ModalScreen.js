@@ -6,7 +6,6 @@ import {
   Dimensions,
   TouchableOpacity,
   ScrollView,
-  Animated,
 } from "react-native";
 
 const { width, height } = Dimensions.get("window");
@@ -14,29 +13,31 @@ const { width, height } = Dimensions.get("window");
 import Cross from "react-native-vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 
-const CATEGORIES = require("../../userData.json");
+import CategoriesList from "../components/CategoriesList";
+import EpisodesList from "../components/EpisodesList";
 
-const CategoriesScreen = () => {
+const ModalScreen = ({ route }) => {
+  const { type } = route.params;
   const [position, setPosition] = useState(0);
   const navigation = useNavigation();
   let styleDynamic = {};
+
+  const componentsPicker = () => {
+    if (type == "Categories") {
+      return <CategoriesList />;
+    } else if (type == "Seasons") {
+      return <EpisodesList />;
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <ScrollView>
-        {CATEGORIES.categories.map((element, i) => {
-          return (
-            <Text
-              onLayout={(event) => {
-                const { x, y, height, width } = event.nativeEvent.layout;
-                styleDynamic =
-                  position > 0 ? { color: "red" } : { color: "blue" };
-              }}
-              style={[styles.text, styleDynamic]}
-            >
-              {element.name}
-            </Text>
-          );
-        })}
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+      >
+        <View style={{ justifyContent: "center", alignItems: "center" }}>
+          {componentsPicker()}
+        </View>
       </ScrollView>
       <View style={styles.containerButton}>
         <View style={styles.btn}>
@@ -59,11 +60,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(9, 9, 9, 1)",
     paddingTop: 60,
-  },
-  text: {
-    color: "#ccc",
-    textAlign: "center",
-    marginBottom: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   containerButton: {
     width: "100%",
@@ -74,7 +72,7 @@ const styles = StyleSheet.create({
   },
   btn: {
     position: "absolute",
-    bottom: 25,
+    bottom: 20,
     left: "45%",
   },
   btnClose: {
@@ -88,4 +86,4 @@ const styles = StyleSheet.create({
   closeButton: {},
 });
 
-export default CategoriesScreen;
+export default ModalScreen;

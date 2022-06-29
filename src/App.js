@@ -19,11 +19,12 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 
 import ProfilePicker from "./screens/ProfilePicker";
 import HomeScreen from "./screens/HomeScreen";
-import DetailScreen from "./screens/DetailScreen";
+import DetailScreen from "./screens/DetailsScreen";
 import NewAdditionsScreen from "./screens/NewAdditionsScreen";
 import SearchScreen from "./screens/SearchScreen";
 import DownloadScreen from "./screens/DownloadScreen";
-import CategoriesScreen from "./screens/CategoriesScreen";
+import ModalScreen from "./screens/ModalScreen";
+import VideoScreen from "./screens/VideoScreen";
 
 import SplashScreen from "react-native-lottie-splash-screen";
 
@@ -105,11 +106,20 @@ const RootStackScreen = () => {
           }}
         />
         <RootStack.Screen
-          name="CategoriesScreen"
-          component={CategoriesScreen}
+          name="ModalScreen"
+          component={ModalScreen}
           options={{
             headerMode: "none",
             presentation: "transparentModal",
+          }}
+        />
+        <RootStack.Screen
+          name="Video"
+          component={VideoScreen}
+          options={{
+            headerMode: "none",
+            presentation: "transparentModal",
+            orientation: "landscape",
           }}
         />
       </RootStack.Navigator>

@@ -40,7 +40,9 @@ const Header = () => {
           <Text style={styles.menuOption}>Películas</Text>
           <View style={styles.menuDropdown}>
             <TouchableOpacity
-              onPress={() => navigation.navigate("CategoriesScreen")}
+              onPress={() =>
+                navigation.navigate("ModalScreen", { type: "Categories" })
+              }
             >
               <Text style={[styles.menuOption, styles.menuOptionDropdown]}>
                 Categorías

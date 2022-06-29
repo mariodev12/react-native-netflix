@@ -24,6 +24,7 @@ import Down from "react-native-vector-icons/AntDesign";
 import ProgressVideoDetail from "../components/ProgressVideoDetail";
 import EpisodePicker from "../components/EpisodePicker";
 import Related from "../components/Related";
+import { useNavigation } from "@react-navigation/native";
 
 const DUMMY_DATA = require("../../assets/assets.json");
 const episodes = DUMMY_DATA[0].dummyEpisodes.episodes.splice(0, 5);
@@ -33,6 +34,7 @@ const DetailScreen = () => {
   const [finshed, setFinished] = useState(false);
   const [width, setWidth] = useState(new Animated.Value(0));
   const [episode, setEpisode] = useState(0);
+  const navigation = useNavigation();
 
   const onChangeTab = (tab) => {
     setSelectedTab(tab);
@@ -129,6 +131,7 @@ const DetailScreen = () => {
           ].map((item, i) => {
             return (
               <TouchableOpacity
+                key={i}
                 onPress={() => onChangeTab(i)}
                 style={[styles.tab]}
               >
@@ -147,7 +150,13 @@ const DetailScreen = () => {
         <View>
           {selectedTab == 0 && (
             <View>
-              <TouchableOpacity>
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate("ModalScreen", {
+                    type: "Seasons",
+                  })
+                }
+              >
                 <View style={styles.pickerBtn}>
                   <Text style={styles.buttonText}>Temporada 3</Text>
                   <Down name="down" size={15} color="#fff" />

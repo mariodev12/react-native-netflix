@@ -15,7 +15,7 @@ const { width, height } = Dimensions.get("window");
 
 import Play from "react-native-vector-icons/Ionicons";
 
-const VideoPlayer = () => {
+const VideoPlayer = ({ rotate }) => {
   const x = width / 2 - 30;
   const y = 220 / 2 - 30;
   const [loaded, setLoaded] = useState(false);
@@ -24,6 +24,9 @@ const VideoPlayer = () => {
   return (
     <View>
       <Video
+        fullscreenAutorotate={true}
+        fullscreenOrientation={"landscape"}
+        fullscreen={true}
         paused={paused}
         source={require("../../../assets/broadchurch.mp4")} // Can be a URL or a local file.
         ref={(ref) => {
