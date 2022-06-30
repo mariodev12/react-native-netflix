@@ -1,5 +1,8 @@
+import { useNavigation } from "@react-navigation/native";
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableHighlight } from "react-native";
+
+import Plus from "react-native-vector-icons/Fontisto";
 
 const SAMPLE_USERS = [
   {
@@ -20,6 +23,7 @@ const SAMPLE_USERS = [
 ];
 
 const ProfilePicker = () => {
+  const navigation = useNavigation();
   return (
     <View style={styles.wrapper}>
       <View style={styles.header}>
@@ -42,10 +46,16 @@ const ProfilePicker = () => {
             );
           })}
           <View style={styles.gridCell}>
-            <View style={[styles.avatar, styles.buttonAddProfile]}>
-              <Text style={styles.buttonAddPlus}>+</Text>
-            </View>
-            <Text style={styles.gridName}>Añadir perfil</Text>
+            <TouchableHighlight
+              onPress={() => navigation.navigate("TabScreen")}
+            >
+              <View>
+                <View style={[styles.avatar, styles.buttonAddProfile]}>
+                  <Plus name="plus-a" color="white" size={25} />
+                </View>
+                <Text style={styles.gridName}>Añadir perfil</Text>
+              </View>
+            </TouchableHighlight>
           </View>
         </View>
       </View>
@@ -67,15 +77,17 @@ const styles = StyleSheet.create({
   title: {
     color: "#ccc",
     textAlign: "center",
-    fontSize: 17,
+    letterSpacing: 0.4,
+    fontSize: 15,
     flex: 1,
   },
   buttonEdit: {
     right: 0,
     color: "white",
-    fontWeight: "bold",
+    fontWeight: "900",
     textAlign: "right",
     position: "absolute",
+    fontSize: 12,
   },
   content: {
     marginTop: 10,
@@ -97,9 +109,10 @@ const styles = StyleSheet.create({
   avatar: {
     width: 100,
     height: 100,
+    borderRadius: 5,
   },
   buttonAddProfile: {
-    backgroundColor: "#191919",
+    backgroundColor: "black",
     borderRadius: 3,
     borderWidth: 2,
     borderColor: "#333333",

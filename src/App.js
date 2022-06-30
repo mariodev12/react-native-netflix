@@ -18,6 +18,7 @@ import Octicons from "react-native-vector-icons/Octicons";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 
 import ProfilePicker from "./screens/ProfilePicker";
+import Profile from "./screens/Profile";
 import HomeScreen from "./screens/HomeScreen";
 import DetailScreen from "./screens/DetailsScreen";
 import NewAdditionsScreen from "./screens/NewAdditionsScreen";
@@ -92,14 +93,24 @@ const RootStackScreen = () => {
   return (
     <NavigationContainer>
       <RootStack.Navigator
+        initialRouteName="ProfilePicker"
         screenOptions={{
           headerMode: "none",
         }}
       >
+        <RootStack.Screen name="ProfilePicker" component={ProfilePicker} />
         <RootStack.Screen name="TabScreen" component={TabScreen} />
         <RootStack.Screen
           name="DetailScreen"
           component={DetailScreen}
+          options={{
+            headerMode: "none",
+            presentation: "modal",
+          }}
+        />
+        <RootStack.Screen
+          name="Profile"
+          component={Profile}
           options={{
             headerMode: "none",
             presentation: "modal",

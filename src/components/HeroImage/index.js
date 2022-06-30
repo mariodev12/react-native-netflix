@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     width: "80%",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "space-around",
   },
   buttonVertical: {
     flexDirection: "column",

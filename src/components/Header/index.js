@@ -27,12 +27,14 @@ const Header = () => {
           </View>
           <View style={styles.right}>
             <Cast name="cast" size={20} color="white" style={styles.castIcon} />
-            <View
-              style={[
-                styles.avatar,
-                { backgroundColor: USER_DATA.users[2].backgroundColor },
-              ]}
-            />
+            <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
+              <View
+                style={[
+                  styles.avatar,
+                  { backgroundColor: USER_DATA.users[2].backgroundColor },
+                ]}
+              />
+            </TouchableOpacity>
           </View>
         </View>
         <View style={styles.menu}>
