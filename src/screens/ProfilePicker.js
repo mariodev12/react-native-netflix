@@ -4,23 +4,7 @@ import { View, Text, StyleSheet, TouchableHighlight } from "react-native";
 
 import Plus from "react-native-vector-icons/Fontisto";
 
-const SAMPLE_USERS = [
-  {
-    name: "@Alf",
-    avatar: "",
-    backgroundColor: "#D22F28",
-  },
-  {
-    name: "M@rio",
-    avatar: "",
-    backgroundColor: "#791BDE",
-  },
-  {
-    name: "Irene",
-    avatar: "",
-    backgroundColor: "#DDB13D",
-  },
-];
+const SAMPLE_USERS = require("../../userData.json");
 
 const ProfilePicker = () => {
   const navigation = useNavigation();
@@ -32,7 +16,7 @@ const ProfilePicker = () => {
       </View>
       <View style={styles.content}>
         <View style={styles.grid}>
-          {SAMPLE_USERS.map((item, id) => {
+          {SAMPLE_USERS.users.map((item, id) => {
             return (
               <View style={styles.gridCell} key={id}>
                 <View
